@@ -23,7 +23,7 @@ Code-Mixed-Machine-Translation Repo.
 |- src (main body of our the codebase)
     |- data (activities related to data such as, data cleaning, pre-processing, EDA, etc falls into this folder.)
     |- machine_translation (defines end-to-end ML pipeline for code-mixed machine translation)
-|- requirements.txt (pip requirements that must be installed prior to running this pipeline)
+|- requirements.txt (pip requirements (with version) that must be installed prior to running this pipeline)
 ```
 
 ## Tasks

@@ -17,6 +17,7 @@ Code-Mixed-Machine-Translation Repo.
     |- processed (this folder holds processed data, test and train folders are again optional. Note: Do not push the data to github. Instead add a README.md here about how to get here.)
         |- test
         |- train
+|- docs (documentation such as proposals and reports fall here)
 |- logs (any logging that takes places in this end-to-end pipeline goes here)
 |- runs (pretrained models, saved/logged models goes here)
 |- nbs (contains jupyter notebook that demonstrates various activities)

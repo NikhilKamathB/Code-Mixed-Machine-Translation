@@ -1,0 +1,86 @@
+{
+    "data": {
+        "base_dir": "../data",
+        "resultant_col_name": [
+            "en",
+            "hi_en"
+        ],
+        "huggingface": {
+            "name": "huggingface",
+            "dataset": [
+                "cmu_hinglish_dog",
+                "findnitai/english-to-hinglish"
+            ]
+        },
+        "hinglish_top_dataset": {
+            "name": "hinglish_top_dataset",
+            "dataset": {
+                "train": [
+                    "raw/train_top.tsv",
+                    "raw/train_synt_top.tsv"
+                ],
+                "validation": [
+                    "raw/validation_top.tsv"
+                ],
+                "test": [
+                    "raw/test_top.tsv"
+                ]
+            }
+        },
+        "linc_dataset": {
+            "name": "linc_dataset",
+            "dataset": {
+                "train": [
+                    "raw/train_linc.txt"
+                ],
+                "validation": [
+                    "raw/dev_linc.txt"
+                ]
+            }
+        },
+        "processed_data": {
+            "base_dir": "../data/processed",
+            "train_data": "train.csv",
+            "validation_data": "validation.csv",
+            "test_data": "test.csv"
+        }
+    },
+    "mbart_code_mixed": {
+        "tokenizer": {
+            "byte_level_bpe_tokenizer": {
+                "type": "ByteLevelBPETokenizer",
+                "add_prefix_space": false,
+                "lowercase": false,
+                "trim_offsets": false,
+                "vocab_file": null,
+                "merges_file": null,
+                "dropout": null,
+                "unicode_normalizer": null,
+                "continuing_subword_prefix": null,
+                "end_of_word_suffix": null,
+                "files": [],
+                "vocab_size": 30000,
+                "min_fequency": 2,
+                "show_progress": true,
+                "special_tokens": [
+                    "<s>",
+                    "</s>",
+                    "<pad>",
+                    "<unk>",
+                    "<mask>"
+                ],
+                "prefix_path": "bpe_tokenizer",
+                "save_path": "../runs/tokenizer",
+                "load_path": null,
+                "binding": {
+                    "bart_tokenizer": {
+                        "type": "BartTokenizer",
+                        "from_pretrained": "facebook/bart-large",
+                        "style": "default"
+                    }
+                }
+            }
+        },
+        "model": {}
+    }
+}

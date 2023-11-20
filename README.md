@@ -11,12 +11,8 @@ Machine translation is a rapidly evolving field in Natural Language Processing (
 Code-Mixed-Machine-Translation Repo.
 
 |- data
-    |- raw (this folder holds raw/downloaded data, test and train folders are optional. Note: Do not push the data to github. Instead add a README.md here about how to get data.)
-        |- test
-        |- train
-    |- processed (this folder holds processed data, test and train folders are again optional. Note: Do not push the data to github. Instead add a README.md here about how to get here.)
-        |- test
-        |- train
+    |- raw (this folder holds raw/downloaded data, test, validation and train data. Note: Do not push the data to github. Instead add a README.md here about how to get data.)
+    |- processed (this folder holds processed data, test, validation and train data. Note: Do not push the data to github. Instead add a README.md here about how to get here.)
 |- docs (documentation such as proposals and reports fall here)
 |- logs (any logging that takes places in this end-to-end pipeline goes here)
 |- runs (pretrained models, saved/logged models goes here)
@@ -28,7 +24,9 @@ Code-Mixed-Machine-Translation Repo.
 ```
 
 ## Tasks
-- [ ]  Data acquisition
+- [X]  Data acquisition
+    - You can get the data from the [google drive](https://drive.google.com/drive/folders/1upcPGjw2WwTWYEsSx67IlLWHlvNFJ3Oo?usp=sharing).
+    - Once downloaded, place these files inside `./data/raw`. Alternatively, you may change this by setting the `data.base_dir` and `data.dataset-name.dataset.<split>` attributes in the `config.json` file.
 - [ ]  Data annotations/preparation
     - [ ] Data annotations (when using multiple sources, not applicable for now)
     - [ ] Data cleaning

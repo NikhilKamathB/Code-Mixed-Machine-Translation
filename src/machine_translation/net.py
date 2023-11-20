@@ -8,10 +8,10 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from datetime import datetime
 try:
-    from .models.mbert import MBert
+    from .models.mbart import MBart
 except ImportError:
     print("Following alternate import for net.py")
-    from models.mbert import MBert
+    from models.mbart import MBart
 
 
 class CodeMixedModel:
@@ -31,7 +31,7 @@ class CodeMixedModel:
                  save_path_dir: str = None,
                  save_model_name: str = None,
                  saved_model_path: str = None,
-                 model_name: str = "MBert",
+                 model_name: str = "MBart",
                  verbose: bool = True,
                  verbose_step: int = 100,
                  freeze: bool = False,
@@ -52,7 +52,7 @@ class CodeMixedModel:
                 save_path_dir: str, path to the directory where the model will be saved
                 save_model_name: str, name of the model to be saved
                 saved_model_path: str, path to the saved model (ought to be loaded)
-                model_name: str, name of the model to be used | default: MBert | options: MBert
+                model_name: str, name of the model to be used | default: MBart | options: MBart
                 verbose: bool, if True, the module will be verbose
                 verbose_step: int, the step after which the module will be verbose
                 freeze: bool, if True, the model will be frozen
@@ -90,14 +90,14 @@ class CodeMixedModel:
         _ = self.load_model()
         if self.verbose: print(self.model)
 
-    def get_model(self, model_name: str = 'MBert') -> object:
+    def get_model(self, model_name: str = 'MBart') -> object:
         '''
             Returns the model object
             Input params:
-                model_name: str, name of the model to be used | default: MBert | options: MBert
+                model_name: str, name of the model to be used | default: MBart | options: MBart
         '''
-        if model_name == 'MBert':
-            return MBert().model
+        if model_name == 'MBart':
+            return MBart().model
         else:
             raise NotImplementedError(f"Model {model_name} not implemented")
         

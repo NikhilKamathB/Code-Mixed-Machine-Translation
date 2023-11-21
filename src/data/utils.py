@@ -134,6 +134,19 @@ def load_dataset() -> dict:
     """
     return {**load_huggingface_dataset(), **load_hinglish_top_dataset(), **load_linc_dataset()}
 
+def clean_df(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Description: Remove any duplicate rows from a dataframe
+    Input parameters:
+        - df: The input dataframe from which duplicates are to be removed.
+    Returns: A dataframe containing no duplicate rows
+    """
+    duplicates = df.duplicated()
+    has_duplicates = duplicates.any()
+    if has_duplicates:
+        df = df.drop_duplicates()
+    return df
+
 def get_dataset(remove: bool = True) -> tuple:
     """
     Description: Get all the datasets mentioned in config and save them. 
@@ -150,6 +163,9 @@ def get_dataset(remove: bool = True) -> tuple:
             validation_df = pd.concat([validation_df, data[dataset]["validation"]], axis=0)
         if "test" in data[dataset].keys():
             test_df = pd.concat([test_df, data[dataset]["test"]], axis=0)
+    train_df = clean_df(train_df)
+    validation_df = clean_df(validation_df)
+    test_df = clean_df(test_df)
     if os.path.exists(os.path.join(PROCESSED_DATA_BASE_DIR, PROCESSED_TRAIN_CSV)) and remove:
         os.remove(os.path.join(PROCESSED_DATA_BASE_DIR, PROCESSED_TRAIN_CSV))
     if not os.path.exists(os.path.join(PROCESSED_DATA_BASE_DIR, PROCESSED_TRAIN_CSV)):

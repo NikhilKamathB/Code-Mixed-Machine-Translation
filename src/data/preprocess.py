@@ -63,7 +63,7 @@ def trim_extra_spaces(text: str) -> str:
     """Trim leading, trailing, and extra spaces within the text"""
     return ' '.join(text.split())
 
-def clean_text(text: str, retain_hashtag_text: bool = False, remove_emoji: bool = False) -> str:
+def clean_text(text: str, retain_hashtag_text: bool = False, remove_emoji: bool = True) -> str:
     """Aggregate function to clean the provided text based on individual cleaning functions"""
     text = remove_urls(text)
     text = remove_usernames(text)

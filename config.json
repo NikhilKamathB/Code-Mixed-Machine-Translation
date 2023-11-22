@@ -58,7 +58,6 @@
                 "unicode_normalizer": null,
                 "continuing_subword_prefix": null,
                 "end_of_word_suffix": null,
-                "files": [],
                 "vocab_size": 30000,
                 "min_fequency": 2,
                 "show_progress": true,
@@ -69,12 +68,24 @@
                     "<unk>",
                     "<mask>"
                 ],
+                "length": null,
+                "save_bpe": false,
                 "prefix_path": "bpe_tokenizer",
                 "save_path": "../runs/tokenizer",
                 "load_path": null,
                 "binding": {
                     "bart_tokenizer": {
                         "type": "BartTokenizer",
+                        "from_pretrained": "facebook/bart-large",
+                        "style": "default"
+                    },
+                    "bart_tokenizer_encoder": {
+                        "type": "BartTokenizerEncoder",
+                        "from_pretrained": "facebook/bart-large",
+                        "style": "scratch"
+                    },
+                    "bart_tokenizer_decoder": {
+                        "type": "BartTokenizerDecoder",
                         "from_pretrained": "facebook/bart-large",
                         "style": "default"
                     }

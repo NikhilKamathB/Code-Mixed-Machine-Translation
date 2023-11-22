@@ -43,11 +43,6 @@ def handle_emojis(text: str, remove: bool = False) -> str:
     else:
         # You can expand this to convert specific emojis to text if needed
         return text
-    
-def remove_non_alpha(text: str) -> str:
-    """Remove all non-alphabetical characters  from a text string."""
-    # Use regular expression to replace all non-alphabet characters with an empty string
-    return re.sub('[^a-zA-Z\s]', '', text)
 
 def standardize_punctuation(text: str) -> str:
     """Standardize punctuation marks within the text"""
@@ -61,7 +56,7 @@ def to_lowercase(text: str) -> str:
 
 def trim_extra_spaces(text: str) -> str:
     """Trim leading, trailing, and extra spaces within the text"""
-    return ' '.join(text.split())
+    return re.sub(r'\s+', ' ', text.strip())
 
 def clean_text(text: str, retain_hashtag_text: bool = False, remove_emoji: bool = True) -> str:
     """Aggregate function to clean the provided text based on individual cleaning functions"""
@@ -70,7 +65,6 @@ def clean_text(text: str, retain_hashtag_text: bool = False, remove_emoji: bool 
     text = remove_rt(text)
     text = remove_hashtags_and_mentions(text, retain_hashtag_text)
     text = handle_emojis(text, remove_emoji)
-    text = remove_non_alpha(text)
     text = standardize_punctuation(text)
     text = to_lowercase(text)
     text = trim_extra_spaces(text)

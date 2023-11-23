@@ -2,8 +2,8 @@
     "data": {
         "base_dir": "../data",
         "resultant_col_name": [
-            "en",
-            "hi_en"
+            "hi_en",
+            "en"
         ],
         "huggingface": {
             "name": "huggingface",
@@ -91,6 +91,31 @@
                     }
                 }
             }
+        },
+        "dataloader": {
+            "encoder": {
+                "add_special_tokens": true,
+                "max_length": null,
+                "return_tensors": "pt",
+                "padding": true,
+                "verbose": true
+            },
+            "decoder": {
+                "add_special_tokens": true,
+                "max_length": null,
+                "return_tensors": "pt",
+                "padding": true,
+                "verbose": true
+            },
+            "translations": {
+                "hi_en__en": {
+                    "src": "hi_en",
+                    "tgt": "en"
+                }
+            },
+            "train_batch_size": 32,
+            "validation_batch_size": 32,
+            "test_batch_size": 32
         },
         "model": {}
     }

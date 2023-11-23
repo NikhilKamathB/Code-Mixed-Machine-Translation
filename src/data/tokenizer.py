@@ -39,14 +39,15 @@ class CustomBartTokenizer:
             os.makedirs(self.save_path)
         self.bpe_tokenizer.save_model(self.save_path)
     
-    def _build_bart_tokenizer(self, tokenizer_style: STYLE = MBART_TOKENIZER_BPE_BINDING_BART_TOKENIZER_STYLE) -> None:
+    def _build_bart_tokenizer(self, tokenizer_style: STYLE = MBART_TOKENIZER_BPE_BINDING_BART_TOKENIZER_STYLE, \
+                              tokenizer_bart_from_pretrained_path: str = MBART_TOKENIZER_BPE_BINDING_BART_TOKENIZER_FROM_PRETRAINED) -> None:
         """
         Description: Builds a BART tokenizer.
         Input parameters:
             - tokenizer_style: A STYLE enum value.
         Outputs: None.
         """
-        self.bart_tokenizer = BartTokenizer.from_pretrained(MBART_TOKENIZER_BPE_BINDING_BART_TOKENIZER_FROM_PRETRAINED)
+        self.bart_tokenizer = BartTokenizer.from_pretrained(tokenizer_bart_from_pretrained_path)
         if tokenizer_style == STYLE.APPEND.value:
             self.new_vocab_items = list(self.bpe_tokenizer.get_vocab().keys())
             self.bart_tokenizer.add_tokens(self.new_vocab_items)
@@ -63,7 +64,8 @@ class CustomBartTokenizer:
     
     def build(self, data: pd.Series = None, tokenizer_style: STYLE = MBART_TOKENIZER_BPE_BINDING_BART_TOKENIZER_STYLE, \
               tokenizer_bpe_load_path: str = MBART_TOKENIZER_BPE_LOAD_PATH, \
-                tokenizer_bpe_prefix_path: str = MBART_TOKENIZER_BPE_PREFIX_PATH) -> BartTokenizer:
+                tokenizer_bpe_prefix_path: str = MBART_TOKENIZER_BPE_PREFIX_PATH, \
+                    tokenizer_bart_from_pretrained_path: str = MBART_TOKENIZER_BPE_BINDING_BART_TOKENIZER_FROM_PRETRAINED) -> BartTokenizer:
         """
         Description: Builds a BPE tokenizer and a BART tokenizer.
         Input parameters:
@@ -81,10 +83,10 @@ class CustomBartTokenizer:
                     or (tokenizer_style != STYLE.DEFAULT.value \
                         and not tokenizer_bpe_load_path):
             self._build_bpe_tokenizer(iterator=data, prefix=tokenizer_bpe_prefix_path)
-            self._build_bart_tokenizer(tokenizer_style=tokenizer_style)
+            self._build_bart_tokenizer(tokenizer_style=tokenizer_style, tokenizer_bart_from_pretrained_path=tokenizer_bart_from_pretrained_path)
             self._clean()
         elif tokenizer_style == STYLE.DEFAULT.value:
-            self._build_bart_tokenizer(tokenizer_style=tokenizer_style)
+            self._build_bart_tokenizer(tokenizer_style=tokenizer_style, tokenizer_bart_from_pretrained_path=tokenizer_bart_from_pretrained_path)
         elif tokenizer_bpe_load_path:
             self.bart_tokenizer = BartTokenizer.from_pretrained(tokenizer_bpe_load_path)
         return self.bart_tokenizer

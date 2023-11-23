@@ -20,6 +20,7 @@ def extract_translation(dataset: object, lang_keys: list = ["en", "hi_en"]) -> d
         df_split.loc[:, "en"] = df_split["translation"].apply(lambda x: x[lang_keys[0]])
         df_split.loc[:, "hi_en"] = df_split["translation"].apply(lambda x: x[lang_keys[1]])
         df_split = df_split[["en", "hi_en"]]
+        df_split = df_split.iloc[:, ::-1]
         df_split.columns = PROCESSED_COLUMN_NAMES
         df[split] = df_split
 
@@ -66,6 +67,7 @@ def get_hinglish_top_dataset(file_name: str, cols: list = ["en_query", "cs_query
     """
     df = pd.read_table(os.path.join(BASE_DATA_DIR, file_name), skip_blank_lines=True, on_bad_lines='skip')[cols]
     df.dropna(subset=cols, inplace=True)
+    df = df.iloc[:, ::-1]
     df.columns = PROCESSED_COLUMN_NAMES
     return df
 
@@ -94,6 +96,7 @@ def get_linc_dataset(file_name: str) -> pd.DataFrame:
     """
     with open(os.path.join(BASE_DATA_DIR, file_name), "r") as f:
         df = pd.DataFrame([line.split("\t") for line in f.readlines()])
+    df = df.iloc[:, ::-1]
     df.columns = PROCESSED_COLUMN_NAMES
     return df
 

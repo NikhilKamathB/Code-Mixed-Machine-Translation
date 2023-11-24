@@ -1,10 +1,11 @@
-from transformers import MBartModel
 import torch
+from transformers import MBartModel
+
 
 class MBart:
 
     def __init__(self,
-                 pretrained_path: str = "facebook/mbart-large-cc25",
+                 pretrained_path: str = "facebook/bart-large",
                  device: str = "cpu",
                  max_length: int = 64,
                  num_beams: int = 4,) -> None:
@@ -18,7 +19,6 @@ class MBart:
 
         '''
         self.model = MBartModel.from_pretrained(pretrained_path)
-
         if device is None:
             if torch.cuda.is_available():
                 self.device = "cuda"

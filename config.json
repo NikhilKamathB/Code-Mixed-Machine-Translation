@@ -58,16 +58,16 @@
                 "unicode_normalizer": null,
                 "continuing_subword_prefix": null,
                 "end_of_word_suffix": null,
-                "vocab_size": 30000,
-                "min_fequency": 2,
+                "vocab_size": 50265,
+                "min_fequency": 1,
                 "show_progress": true,
                 "special_tokens": [
                     "<s>",
-                    "</s>",
                     "<pad>",
-                    "<unk>",
-                    "<mask>"
+                    "</s>",
+                    "<unk>"
                 ],
+                "mask_token": "<mask>",
                 "length": null,
                 "save_bpe": false,
                 "prefix_path": "bpe_tokenizer",
@@ -117,6 +117,40 @@
             "validation_batch_size": 32,
             "test_batch_size": 32
         },
-        "model": {}
+        "model": {
+            "bart_for_conditional_generation": {
+                "type": "BartForConditionalGeneration",
+                "device": "cpu",
+                "epochs": 10,
+                "save_model": true,
+                "save_path": "../runs/models/bart_for_conditional_generation",
+                "load_path": null,
+                "use_pretrained": true,
+                "from_pretrained": "facebook/bart-large",
+                "vocab_size": 50265,
+                "verbose": true,
+                "verbose_step": 100,
+                "freeze_model": false,
+                "k_random": 7,
+                "optimizer": {
+                    "type": "AdamW",
+                    "lr": 0.001,
+                    "betas": [
+                        0.9,
+                        0.999
+                    ],
+                    "eps": 1e-06,
+                    "weight_decay": 0,
+                    "correct_bias": true,
+                    "no_depreciation_warning": false
+                },
+                "scheduler": {
+                    "type": "linear",
+                    "num_warmup_steps": 100,
+                    "num_training_steps": 1000,
+                    "last_epoch": -1
+                }
+            }
+        }
     }
 }

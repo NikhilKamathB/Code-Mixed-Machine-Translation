@@ -1,10 +1,11 @@
-from transformers import BartModel
 import torch
+from transformers import BartModel
+
 
 class Bart:
 
     def __init__(self,
-                 pretrained_path: str = "facebook/bart-base",
+                 pretrained_path: str = "facebook/bart-large",
                  device: str = "cpu",
                  max_length: int = 64,
                  num_beams: int = 4,) -> None:

@@ -40,6 +40,7 @@ MBART_TOKENIZER_BPE_VOCAB_SIZE = __config__["mbart_code_mixed"]["tokenizer"]["by
 MBART_TOKENIZER_BPE_MINIMUM_FREQUENCY = __config__["mbart_code_mixed"]["tokenizer"]["byte_level_bpe_tokenizer"]["min_fequency"]
 MBART_TOKENIZER_BPE_SHOW_PROGRESS = __config__["mbart_code_mixed"]["tokenizer"]["byte_level_bpe_tokenizer"]["show_progress"]
 MBART_TOKENIZER_BPE_SPECIAL_TOKENS = __config__["mbart_code_mixed"]["tokenizer"]["byte_level_bpe_tokenizer"]["special_tokens"]
+MBART_TOKENIZER_BPE_MASK_TOKEN = __config__["mbart_code_mixed"]["tokenizer"]["byte_level_bpe_tokenizer"]["mask_token"]
 MBART_TOKENIZER_BPE_LENGTH = __config__["mbart_code_mixed"]["tokenizer"]["byte_level_bpe_tokenizer"]["length"]
 MBART_TOKENIZER_BPE_SAVE_BPE = __config__["mbart_code_mixed"]["tokenizer"]["byte_level_bpe_tokenizer"]["save_bpe"]
 MBART_TOKENIZER_BPE_PREFIX_PATH = __config__["mbart_code_mixed"]["tokenizer"]["byte_level_bpe_tokenizer"]["prefix_path"]

@@ -34,6 +34,7 @@ class CustomBartTokenizer:
             special_tokens = MBART_TOKENIZER_BPE_SPECIAL_TOKENS,
             length = MBART_TOKENIZER_BPE_LENGTH
         )
+        self.bpe_tokenizer.add_tokens([MBART_TOKENIZER_BPE_MASK_TOKEN])
         self.save_path = MBART_TOKENIZER_BPE_SAVE_PATH + "/" + prefix + "_" + datetime.now().strftime("%Y%m%d-%H%M%S")
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)

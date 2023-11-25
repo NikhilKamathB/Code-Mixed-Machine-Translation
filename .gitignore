@@ -17,6 +17,7 @@ __pycache__/
 *.tar.gz
 *.json
 *.tsv
+*.pth
 !*config.json
 
 # C extensions

@@ -113,14 +113,14 @@
                     "tgt": "en"
                 }
             },
-            "train_batch_size": 64,
-            "validation_batch_size": 64,
-            "test_batch_size": 64
+            "train_batch_size": 32,
+            "validation_batch_size": 32,
+            "test_batch_size": 32
         },
         "model": {
             "bart_for_conditional_generation": {
                 "type": "BartForConditionalGeneration",
-                "device": "cpu",
+                "device": "mps",
                 "epochs": 50,
                 "save_model": true,
                 "save_path": "../runs/models/bart_for_conditional_generation",
@@ -158,6 +158,15 @@
                     "num_warmup_steps": 10,
                     "num_training_steps": 50,
                     "last_epoch": -1
+                },
+                "generate": {
+                    "min_length": 0,
+                    "max_length": 20,
+                    "early_stopping": false,
+                    "num_beams": 4,
+                    "temperature": 1.0,
+                    "top_k": 50,
+                    "top_p": 1.0
                 }
             }
         }

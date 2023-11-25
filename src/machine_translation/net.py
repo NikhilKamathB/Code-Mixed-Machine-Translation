@@ -14,6 +14,8 @@ from src.data import *
 from src.machine_translation import *
 from src.data.tokenizer import CustomBartTokenizer
 from src.machine_translation.models.bart_conditional import BartForConditionalGeneration
+from transformers import TrainingArguments, Trainer
+
 
 
 class CodeMixedModelHGTrainer:
@@ -23,24 +25,56 @@ class CodeMixedModelHGTrainer:
     '''
 
     def __init__(self,
+                 train_dataset: object = None,
+                 validation_dataset: object = None,
+                 test_dataset: object = None,
                  use_pretrained: bool = MBART_MODEL_CONDITIONAL_GENERATION_USE_PRETRAINED,
                  from_pretrained: str = MBART_MODEL_CONDITIONAL_GENERATION_FROM_PRETRAINED,
+                 save_model: bool = MBART_MODEL_CONDITIONAL_GENERATION_SAVE_MODEL,
                  save_path_dir: str = MBART_MODEL_CONDITIONAL_GENERATION_SAVE_PATH,
+                 saved_model_path: str = MBART_MODEL_CONDITIONAL_GENERATION_LOAD_PATH,
                  model_name: str = MBART_MODEL_CONDITIONAL_GENERATION_TYPE,
-                 k_random: int = MBART_MODEL_CONDITIONAL_GENERATION_K_RANDOM
+                 k_random: int = MBART_MODEL_CONDITIONAL_GENERATION_K_RANDOM,
+                 epochs: int = MBART_MODEL_CONDITIONAL_GENERATION_EPOCHS,
+                 device: str = MBART_MODEL_CONDITIONAL_GENERATION_DEVICE,
+                 verbose: bool = MBART_MODEL_CONDITIONAL_GENERATION_VERBOSE,
+                 verbose_step: int = MBART_MODEL_CONDITIONAL_GENERATION_VERBOSE_STEP,
+                 freeze: bool = MBART_MODEL_CONDITIONAL_GENERATION_FREEZE_MODEL,
+                 trainable_layers: list = None,
+                 train_batch_size: int = MBART_DATALOADER_TRAIN_BATCH_SIZE,
+                 validation_batch_size: int = MBART_DATALOADER_VALIDATION_BATCH_SIZE,
+                 test_batch_size: int = MBART_DATALOADER_TEST_BATCH_SIZE
                 ) -> None:
         '''
             Initial definition of the Code Mixed Model
         '''
         super().__init__()
+        self.train_dataset = train_dataset
+        self.validation_dataset = validation_dataset
+        self.test_dataset = test_dataset
         self.use_pretrained = use_pretrained
         self.from_pretrained = from_pretrained
         self.save_path_dir = save_path_dir
+        self.saved_model_path = saved_model_path
         self.model_name = model_name
+        self.epochs=epochs
+        self.device = device
+        self.save_model = save_model
+        self.verbose = verbose
+        self.verbose_step = verbose_step
+        self.freeze = freeze
+        self.trainable_layers = trainable_layers
+        self.optimizer = None
+        self.scheduler = None
+        self.train_batch_size = train_batch_size
+        self.validation_batch_size = validation_batch_size
+        self.test_batch_size = test_batch_size
         self.save_path = self.save_path_dir + \
             self.model_name + \
                 ''.join(random.choices(string.ascii_uppercase + string.digits, k=k_random)) + ".pth" \
                     if self.save_path_dir is not None else None
+        
+
         
     def _get_model(self, model_name: str = MBART_MODEL_CONDITIONAL_GENERATION_TYPE) -> object:
         '''
@@ -55,9 +89,6 @@ class CodeMixedModelHGTrainer:
             ).model
         else:
             raise NotImplementedError(f"Model {model_name} not implemented")
-    
-    def _configure_training_arguments(self) -> None:
-        pass
 
     def _configure_optimizer(self) -> None:
         pass
@@ -77,7 +108,126 @@ class CodeMixedModelHGTrainer:
     def train(self) -> None:
         pass
     
+    def _configure_training_arguments(self) -> TrainingArguments:
+        return TrainingArguments(
+            output_dir=self.save_path_dir,
+            num_train_epochs=self.epochs,
+            per_device_train_batch_size=self.train_batch_size,
+            per_device_eval_batch_size=self.validation_batch_size
+        )
+    
+    def _freeze_weights(self) -> None:
+        '''
+            Freezes the weights of the model given a list of layers to be trained, if no list is provided, all the layers are frozen
+        '''
+        if self.verbose: print("Freezing the model...")
+        for name, param in self.model.named_parameters():
+            if self.trainable_layers and name in self.trainable_layers:
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
+        if self.trainable_layers is None:
+            self.skip_train = True
+    
+    def _save(self, model: object) -> None:
+        '''
+            This function saves the model
+            Input params: model - a model object
+        '''
+        os.makedirs(self.save_path_dir, exist_ok=True)
+        model.to("cpu")
+        torch.save({
+            'epoch': self.epochs,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            }, self.save_path)
+        print(f"Model saved to -> {self.save_path}...")
+        model.to(self.device)
 
+    def _train(self) -> tuple:
+
+        training_args = self._configure_training_arguments()
+
+        trainer = Trainer(
+            model=self.model,
+            args=training_args,
+            train_dataset=self.train_dataset,
+            eval_dataset=self.validation_dataset,
+            optimizers=(self.optimizer, self.scheduler)
+        )
+        
+        trainer.train()
+
+        # Save the trained model
+        self.model.save_pretrained(self.save_path)
+        return (self.model.to("cpu"), self.best_model.to("cpu"))
+
+    def _configure_optimizers(self) -> None:
+        '''
+            This function configures the optimizer and scheduler.
+        '''
+        if self.verbose: print("\nConfiguring optimizer and scheduler...")
+        if MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_TYPE == "AdamW":
+            optimizer = AdamW(
+                params=self.model.parameters(),
+                lr=MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_LR,
+                betas=MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_BETAS,
+                eps=MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_EPS,
+                weight_decay=MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_WEIGHT_DECAY,
+                correct_bias=MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_CORRECT_BIAS,
+                no_deprecation_warning=MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_NO_DEPRICATION_WARNING
+            )
+        else:
+            raise NotImplementedError(f"Optimizer {MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_TYPE} not implemented.")
+        if MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_TYPE == "get_linear_schedule_with_warmup":
+            scheduler = get_linear_schedule_with_warmup(
+                optimizer=optimizer,
+                num_warmup_steps=MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_WARMUP_STEPS,
+                num_training_steps=MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_TRAINING_STEPS,
+                last_epoch=MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_LAST_EPOCH
+            )
+        else:
+            raise NotImplementedError(f"Scheduler {MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_TYPE} not implemented.")
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+
+    def load_model(self) -> object:
+        '''
+            Loads the saved model
+        '''
+        if self.verbose:
+            print("Loading model...")
+        self.model = self._get_model(self.model_name)
+        if self.saved_model_path is not None:
+            state_dict = torch.load(self.saved_model_path, map_location=torch.device("cpu"))
+            if 'model_state_dict' in state_dict:
+                self.model.load_state_dict(state_dict['model_state_dict'])
+            else:
+                self.model.load_state_dict(state_dict)
+            if 'epoch' in state_dict:
+                self.start_epoch = state_dict['epoch']
+            if self.verbose:
+                print(f"Loaded model from {self.saved_model_path}...")
+        else:
+            if self.verbose:
+                print("No saved model to load as `saved_model_path` was not provided or is None.")
+        self.model.to(self.device)
+        if self.freeze:
+            self._freeze_weights()
+        self.best_model = copy.deepcopy(self.model)
+        if self.verbose:
+            print(self.model)
+        return self.model
+    
+    def fit(self) -> tuple:
+        '''
+            This function fits the model
+            Input params: None
+            Returns: tuple of the model and the best model
+        '''
+        _ = self.load_model()
+        self._configure_optimizers()
+        return self._train()
 
 class CodeMixedModel:
 

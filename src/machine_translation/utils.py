@@ -131,7 +131,7 @@ def get_tokenized_dataset(
         decoder_verbose: bool = MBART_DECODER_VERBOSE,
         denoising_stage: bool = False,
         overfit: bool = False,
-        overfit_batch_size: int = 32) -> dict:
+        overfit_size: int = 32) -> dict:
     """
     Description: Returns the tokenized datasets for all src->tgt languages mentioned in the `config.json` file.
     Input parameters:
@@ -154,7 +154,7 @@ def get_tokenized_dataset(
         - decoder_verbose: A boolean value indicating whether to print verbose logs for the decoder.
         - denoising_stage: A boolean value indicating whether the data loader is being used for denoising stage.
         - overfit: A boolean value indicating whether to overfit the data loader.
-        - overfit_batch_size: An integer containing the batch size for overfitting.
+        - overfit_size: An integer containing the batch size for overfitting.
     Returns: A dictionary containing the data loader models for all translations.
     """
     dataset = defaultdict(dict)
@@ -177,7 +177,7 @@ def get_tokenized_dataset(
             "decoder_padding": decoder_padding,
             "decoder_verbose": decoder_verbose,
             "overfit": overfit,
-            "overfit_batch_size": overfit_batch_size,
+            "overfit_size": overfit_size,
         }
         config["data"] = train_df
         train_dataset = CodeMixedTokenizedDataset(**config)

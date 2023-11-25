@@ -154,10 +154,11 @@ class CodeMixedTokenizedDataset(Dataset):
             verbose=self.decoder_verbose
         )
         instance = {
-            "input_ids": encoder_tokenized_text["input_ids"],
-            "attention_mask": encoder_tokenized_text["attention_mask"],
-            "decoder_input_ids": decoder_tokenized_text["input_ids"],
-            "decoder_attention_mask": decoder_tokenized_text["attention_mask"]
+            "input_ids": encoder_tokenized_text["input_ids"].flatten(),
+            "attention_mask": encoder_tokenized_text["attention_mask"].flatten(),
+            "decoder_input_ids": decoder_tokenized_text["input_ids"].flatten(),
+            "labels": decoder_tokenized_text["input_ids"].flatten(),
+            "decoder_attention_mask": decoder_tokenized_text["attention_mask"].flatten()
         }
         return instance
 

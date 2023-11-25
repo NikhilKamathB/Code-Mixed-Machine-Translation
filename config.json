@@ -113,15 +113,15 @@
                     "tgt": "en"
                 }
             },
-            "train_batch_size": 32,
-            "validation_batch_size": 32,
-            "test_batch_size": 32
+            "train_batch_size": 64,
+            "validation_batch_size": 64,
+            "test_batch_size": 64
         },
         "model": {
             "bart_for_conditional_generation": {
                 "type": "BartForConditionalGeneration",
                 "device": "cpu",
-                "epochs": 10,
+                "epochs": 50,
                 "save_model": true,
                 "save_path": "../runs/models/bart_for_conditional_generation",
                 "load_path": null,
@@ -130,8 +130,17 @@
                 "vocab_size": 50265,
                 "verbose": true,
                 "verbose_step": 100,
-                "freeze_model": false,
+                "freeze_model": true,
                 "k_random": 7,
+                "criterion": {
+                    "type": "CrossEntropyLoss",
+                    "weight": null,
+                    "size_average": null,
+                    "ignore_index": -100,
+                    "reduce": null,
+                    "reduction": "mean",
+                    "label_smoothing": 0
+                },
                 "optimizer": {
                     "type": "AdamW",
                     "lr": 0.001,
@@ -145,9 +154,9 @@
                     "no_depreciation_warning": false
                 },
                 "scheduler": {
-                    "type": "linear",
-                    "num_warmup_steps": 100,
-                    "num_training_steps": 1000,
+                    "type": "get_linear_schedule_with_warmup",
+                    "num_warmup_steps": 10,
+                    "num_training_steps": 50,
                     "last_epoch": -1
                 }
             }

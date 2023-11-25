@@ -56,6 +56,112 @@ class CodeMixedDataset(Dataset):
         return instance
 
 
+class CodeMixedTokenizedDataset(Dataset):
+
+    '''
+        Custom dataset class for Code Mixed data - tokenized version
+    '''
+
+    def __init__(self, data: pd.DataFrame,
+                 denoising_stage: bool = False,
+                 src_lang: str = "hi_en",
+                 tgt_lang: str = "en",
+                 encoder_tokenizer: BartTokenizer = None,
+                 encoder_add_special_tokens: bool = True,
+                 encoder_max_length: int = None,
+                 encoder_return_tensors: str = "pt",
+                 encoder_padding: bool = True,
+                 encoder_verbose: bool = True,
+                 decoder_tokenizer: BartTokenizer = None,
+                 decoder_add_special_tokens: bool = True,
+                 decoder_max_length: int = None,
+                 decoder_return_tensors: str = "pt",
+                 decoder_padding: bool = True,
+                 decoder_verbose: bool = True,
+                 overfit: bool = False, 
+                 overfit_size: int = 32):
+        '''
+            Initial definition of the dataset
+            Input params:
+                data: pandas dataframe containing the data
+                denoising_stage: bool, if True, the dataset will be used for denoising
+                src_lang: str, source language
+                tgt_lang: str, target language
+                encoder_tokenizer: BartTokenizer, tokenizer for the source dataset
+                encoder_add_special_tokens: bool, if True, the special tokens will be added
+                encoder_max_length: int, maximum length of the sequence
+                encoder_return_tensors: str, return tensors for the dataset
+                encoder_padding: bool, if True, the dataset will be padded
+                encoder_verbose: bool, if True, the dataset will be printed
+                decoder_tokenizer: BartTokenizer, tokenizer for the target dataset
+                decoder_add_special_tokens: bool, if True, the special tokens will be added
+                decoder_max_length: int, maximum length of the sequence
+                decoder_return_tensors: str, return tensors for the dataset
+                decoder_padding: bool, if True, the dataset will be padded
+                decoder_verbose: bool, if True, the dataset will be printed
+                overfit: bool, if True, the dataset will be overfitted on a small sample
+                overfit_size: int, size of the overfit dataset
+        '''
+        super().__init__()
+        self.data = data
+        self.denoising_stage = denoising_stage
+        self.src_lang = src_lang
+        self.tgt_lang = tgt_lang
+        self.encoder_tokenizer = encoder_tokenizer
+        self.encoder_add_special_tokens = encoder_add_special_tokens
+        self.encoder_max_length = encoder_max_length
+        self.encoder_return_tensors = encoder_return_tensors
+        self.encoder_padding = encoder_padding
+        self.encoder_verbose = encoder_verbose
+        self.decoder_tokenizer = decoder_tokenizer
+        self.decoder_add_special_tokens = decoder_add_special_tokens
+        self.decoder_max_length = decoder_max_length
+        self.decoder_return_tensors = decoder_return_tensors
+        self.decoder_padding = decoder_padding
+        self.decoder_verbose = decoder_verbose
+        self.overfit = overfit
+        self.overfit_size = overfit_size
+        if self.denoising_stage:
+            self.tgt_lang = self.src_lang
+
+    def __len__(self):
+        '''
+            Returns the length of the dataset
+        '''
+        if self.overfit:
+            return self.overfit_size
+        return len(self.data)
+
+    def __getitem__(self, index: int) -> dict:
+        '''
+            Returns a dict instance of the dataset
+        '''
+        raw_instance = self.data.iloc[index]
+        encoder_tokenized_text = self.encoder_tokenizer(
+            text=raw_instance[self.src_lang],
+            max_length=self.encoder_max_length,
+            add_special_tokens=self.encoder_add_special_tokens,
+            return_tensors=self.encoder_return_tensors,
+            padding=self.encoder_padding,
+            verbose=self.encoder_verbose
+        )
+        decoder_tokenized_text = self.decoder_tokenizer(
+            text=raw_instance[self.tgt_lang],
+            max_length=self.decoder_max_length,
+            add_special_tokens=self.decoder_add_special_tokens,
+            return_tensors=self.decoder_return_tensors,
+            padding=self.decoder_padding,
+            verbose=self.decoder_verbose
+        )
+        instance = {
+            "input_ids": encoder_tokenized_text["input_ids"],
+            "attention_mask": encoder_tokenized_text["attention_mask"],
+            "decoder_input_ids": decoder_tokenized_text["input_ids"],
+            "decoder_attention_mask": decoder_tokenized_text["attention_mask"]
+        }
+        return instance
+
+
 class CodeMixedDataLoader(DataLoader):
 
     '''

@@ -133,6 +133,7 @@ class CodeMixedModel:
                 epochs: int, number of epochs to train the model for
                 device: str, device to train the model on
                 save_model: bool, if True, the model will be saved
+                save_to_gcp: bool, if True, the model will be saved to GCP
                 save_path_dir: str, path to the directory where the model will be saved
                 saved_model_path: str, path to the saved model (ought to be loaded)
                 model_name: str, name of the model to be used | default: MBart | options: MBart
@@ -152,6 +153,8 @@ class CodeMixedModel:
                 freeze: bool, if True, the model will be frozen
                 trainable_layers: list, list of layers to be trained, others will be frozen if `freeze` is True
                 k_random: int, number of random characters to be appended to the saved model name
+                google_bucket_name: str, name of the GCP bucket
+                google_bucket_dir: str, directory in the GCP bucket
         '''
         super().__init__()
         self.train_data_loader = train_data_loader
@@ -180,6 +183,7 @@ class CodeMixedModel:
         self.verbose_step = verbose_step
         self.freeze = freeze
         self.trainable_layers = trainable_layers
+        self.k_random = k_random
         self.skip_train = False
         self.start_epoch = 0
         self.optimizer = None
@@ -190,10 +194,6 @@ class CodeMixedModel:
         self.loader_features = ["src_tokenized", "src_attention_mask", "tgt_tokenized", "tgt_attention_mask"]
         self.test_model = None
         self.bleu_metric = load_metric("bleu")
-        self.save_path = self.save_path_dir + '/' + \
-            self.model_name + "_" + \
-                ''.join(random.choices(string.ascii_uppercase + string.digits, k=k_random)) + ".pth" \
-                    if self.save_path_dir is not None else None
 
     def _get_model(self, model_name: str = MBART_MODEL_CONDITIONAL_GENERATION_TYPE) -> object:
         '''
@@ -222,13 +222,20 @@ class CodeMixedModel:
         if self.trainable_layers is None or len(self.trainable_layers) == 0:
             self.skip_train = True
     
-    def _save(self, model: object) -> None:
+    def _save(self, model: object, special_msg: str) -> None:
         '''
             This function saves the model
-            Input params: model - a model object
+            Input params: model - a model object, special_msg - a special message to be printed
         '''
         os.makedirs(self.save_path_dir, exist_ok=True)
         model.to("cpu")
+        if special_msg is None:
+            model_name = self.model_name + "_" + \
+                ''.join(random.choices(string.ascii_uppercase + string.digits, k=self.k_random)) + ".pth"
+        else:
+            model_name = self.model_name + "_" + \
+                ''.join(random.choices(string.ascii_uppercase + string.digits, k=self.k_random)) + f"_{special_msg}.pth"
+        self.save_path = self.save_path_dir + '/' + model_name
         torch.save({
             'epoch': self.epochs,
             'model_state_dict': model.state_dict(),
@@ -374,6 +381,8 @@ class CodeMixedModel:
                             step_running_loss = 0  
                             step_running_bleu = 0 
                             start_step_time = time.time()
+                            if self.save_model:
+                                self._save(model=self.model, special_msg=f"epoch_{str(epoch+1)}_step_{str(step+1)}")
                 self.train_loss.append(running_loss/len(self.train_data_loader))
                 if self.verbose:
                     print(f'\tEPOCH - {epoch+1}/{self.epochs} || TRAIN-LOSS - {(running_loss/len(self.train_data_loader)):.5f} || BLEU SCORE - {bleu_score:.5f} || TIME ELAPSED - {(time.time() - start_epoch_time):.2f}s.\n')
@@ -404,6 +413,8 @@ class CodeMixedModel:
                     self.best_test_loss = running_validation_loss
                     self.best_model = copy.deepcopy(self.model)
                 self.scheduler.step()
+                if self.save_model:
+                    self._save(model=self.model, special_msg=f"epoch_{str(epoch+1)}")
             if self.verbose:
                 self.plot_loss_curve()
         if self.save_model:

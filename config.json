@@ -123,6 +123,7 @@
                 "device": "mps",
                 "epochs": 50,
                 "save_model": true,
+                "save_to_gcp": true,
                 "save_path": "../runs/models/bart_for_conditional_generation",
                 "load_path": null,
                 "use_pretrained": true,

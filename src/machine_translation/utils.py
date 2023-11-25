@@ -1,4 +1,5 @@
 import pandas as pd
+from google.cloud import storage
 from collections import defaultdict
 from transformers import BartTokenizer
 from src.machine_translation import *
@@ -190,3 +191,22 @@ def get_tokenized_dataset(
             "test": test_dataset
         }
     return dataset
+
+def upload_blob(bucket_name: str, source_file_name: str, destination_blob_name: str) -> bool:
+    """
+        Uploads a file to the bucket.
+        Input parameters:
+            - bucket_name: A string containing the name of the bucket.
+            - source_file_name: A string containing the name of the file to be uploaded.
+            - destination_blob_name: A string containing the name of the destination blob.
+        Returns: A boolean value indicating whether the file was successfully uploaded.
+    """
+    try:
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(destination_blob_name)
+        blob.upload_from_filename(source_file_name)
+        return True
+    except Exception as e:
+        print(f"An Error occured while uploading file {source_file_name} to {destination_blob_name} with `e` as: {e}.")
+        return False

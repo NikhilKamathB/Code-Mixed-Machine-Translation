@@ -5,17 +5,17 @@ import torch
 import random
 import string
 from tqdm import tqdm
+from typing import Union
 from datetime import datetime
 import matplotlib.pyplot as plt
 from datasets import load_metric
-from transformers import GenerationConfig
+from torch.utils.data import Dataset, DataLoader
 from transformers.optimization import AdamW, get_linear_schedule_with_warmup
+from transformers import GenerationConfig, DataCollatorWithPadding, TrainingArguments, Trainer
 from src.data import *
 from src.machine_translation import *
 from src.data.tokenizer import CustomBartTokenizer
 from src.machine_translation.models.bart_conditional import BartForConditionalGeneration
-from transformers import TrainingArguments, Trainer
-
 
 
 class CodeMixedModelHGTrainer:
@@ -25,28 +25,70 @@ class CodeMixedModelHGTrainer:
     '''
 
     def __init__(self,
-                 train_dataset: object = None,
-                 validation_dataset: object = None,
-                 test_dataset: object = None,
+                 train_dataset: Dataset = None,
+                 validation_dataset: Dataset = None,
+                 test_dataset: Dataset = None,
                  use_pretrained: bool = MBART_MODEL_CONDITIONAL_GENERATION_USE_PRETRAINED,
                  from_pretrained: str = MBART_MODEL_CONDITIONAL_GENERATION_FROM_PRETRAINED,
-                 save_model: bool = MBART_MODEL_CONDITIONAL_GENERATION_SAVE_MODEL,
                  save_path_dir: str = MBART_MODEL_CONDITIONAL_GENERATION_SAVE_PATH,
-                 saved_model_path: str = MBART_MODEL_CONDITIONAL_GENERATION_LOAD_PATH,
-                 model_name: str = MBART_MODEL_CONDITIONAL_GENERATION_TYPE,
-                 k_random: int = MBART_MODEL_CONDITIONAL_GENERATION_K_RANDOM,
                  epochs: int = MBART_MODEL_CONDITIONAL_GENERATION_EPOCHS,
-                 device: str = MBART_MODEL_CONDITIONAL_GENERATION_DEVICE,
                  verbose: bool = MBART_MODEL_CONDITIONAL_GENERATION_VERBOSE,
                  verbose_step: int = MBART_MODEL_CONDITIONAL_GENERATION_VERBOSE_STEP,
                  freeze: bool = MBART_MODEL_CONDITIONAL_GENERATION_FREEZE_MODEL,
                  trainable_layers: list = None,
                  train_batch_size: int = MBART_DATALOADER_TRAIN_BATCH_SIZE,
                  validation_batch_size: int = MBART_DATALOADER_VALIDATION_BATCH_SIZE,
-                 test_batch_size: int = MBART_DATALOADER_TEST_BATCH_SIZE
+                 test_batch_size: int = MBART_DATALOADER_TEST_BATCH_SIZE,
+                 resume_from_checkpoint: str = MBART_MODEL_CONDITIONAL_GENERATION_RESUME_FROM_CHECKPOINT,
+                 do_train: bool = MBART_MODEL_CONDITIONAL_GENERATION_DO_TRAIN,
+                 do_eval: bool = MBART_MODEL_CONDITIONAL_GENERATION_DO_EVAL,
+                 do_predict: bool = MBART_MODEL_CONDITIONAL_GENERATION_DO_PREDICT,
+                 evaluation_strategy: str = MBART_MODEL_CONDITIONAL_GENERATION_EVALUALTION_STRATEGY,
+                 log_path: str = MBART_MODEL_CONDITIONAL_GENERATION_LOG_PATH,
+                 generate_config: dict = {
+                        "min_length": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_MIN_LENGTH,
+                        "max_length": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_MAX_LENGTH,
+                        "early_stopping": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_EARLY_STOPPING,
+                        "num_beams": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_NUM_BEAMS,
+                        "temperature": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_TEMPERATURE,
+                        "top_k": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_TOP_K,
+                        "top_p": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_TOP_P
+                 },
+                 encoder_tokenizer: CustomBartTokenizer = None,
+                 decoder_tokenizer: CustomBartTokenizer = None,
+                 encoder_max_length: int = MBART_ENCODER_MAX_LENGTH,
+                 encoder_return_tensors: str = MBART_ENCODER_RETURN_TENSORS,
+                 encoder_padding: Union[bool, str] = MBART_ENCODER_PADDING
                 ) -> None:
         '''
-            Initial definition of the Code Mixed Model
+            Initial definition of the Code Mixed Model using HuggingFace trainer.
+            Input params:
+                - train_dataset: Dataset, the training dataset
+                - validation_dataset: Dataset, the validation dataset
+                - test_dataset: Dataset, the test dataset
+                - use_pretrained: bool, whether to use a pretrained model or not
+                - from_pretrained: str, the path to the pretrained model
+                - save_path_dir: str, the path to save the model
+                - epochs: int, the number of epochs to train the model
+                - verbose: bool, whether to print the logs or not
+                - verbose_step: int, the step after which the logs will be printed
+                - freeze: bool, whether to freeze the model or not
+                - trainable_layers: list, the list of layers to be trained
+                - train_batch_size: int, the batch size for training
+                - validation_batch_size: int, the batch size for validation
+                - test_batch_size: int, the batch size for testing
+                - resume_from_checkpoint: str, the path to the checkpoint to resume training from
+                - do_train: bool, whether to train the model or not
+                - do_eval: bool, whether to evaluate the model or not
+                - do_predict: bool, whether to predict the model or not
+                - evaluation_strategy: str, the evaluation strategy to be used
+                - log_path: str, the path to save the logs
+                - generate_config: dict, the config for the generation of the model
+                - encoder_tokenizer: CustomBartTokenizer, the tokenizer for the encoder
+                - decoder_tokenizer: CustomBartTokenizer, the tokenizer for the decoder
+                - encoder_max_length: int, the maximum length of the encoder sequence
+                - encoder_return_tensors: str, the return tensors for the encoder
+                - encoder_padding: Union[bool, str], the padding for the encoder
         '''
         super().__init__()
         self.train_dataset = train_dataset
@@ -54,12 +96,9 @@ class CodeMixedModelHGTrainer:
         self.test_dataset = test_dataset
         self.use_pretrained = use_pretrained
         self.from_pretrained = from_pretrained
-        self.save_path_dir = save_path_dir
-        self.saved_model_path = saved_model_path
-        self.model_name = model_name
+        dt_now = datetime.now().strftime("%Y%m%d-%H%M%S")
+        self.save_path_dir = save_path_dir + "_" + dt_now
         self.epochs=epochs
-        self.device = device
-        self.save_model = save_model
         self.verbose = verbose
         self.verbose_step = verbose_step
         self.freeze = freeze
@@ -69,99 +108,64 @@ class CodeMixedModelHGTrainer:
         self.train_batch_size = train_batch_size
         self.validation_batch_size = validation_batch_size
         self.test_batch_size = test_batch_size
-        self.save_path = self.save_path_dir + \
-            self.model_name + \
-                ''.join(random.choices(string.ascii_uppercase + string.digits, k=k_random)) + ".pth" \
-                    if self.save_path_dir is not None else None
+        self.resume_from_checkpoint = resume_from_checkpoint
+        self.do_train = do_train
+        self.do_eval = do_eval
+        self.do_predict = do_predict
+        self.evalualtion_strategy = evaluation_strategy
+        self.log_path = log_path + "_" + dt_now if log_path is not None else None
+        self.generate_config = generate_config
+        self.encoder_tokenizer = encoder_tokenizer
+        self.decoder_tokenizer = decoder_tokenizer
+        self.encoder_max_length = encoder_max_length
+        self.encoder_return_tensors = encoder_return_tensors
+        self.encoder_padding = encoder_padding
+        self.bleu_metric = load_metric("bleu")
+        self._configure()
         
-
-        
-    def _get_model(self, model_name: str = MBART_MODEL_CONDITIONAL_GENERATION_TYPE) -> object:
+    def _get_model(self,
+                   pretrained: bool = MBART_MODEL_CONDITIONAL_GENERATION_USE_PRETRAINED,
+                   pretrained_path: str = MBART_MODEL_CONDITIONAL_GENERATION_FROM_PRETRAINED,
+                   model_name: str = MBART_MODEL_CONDITIONAL_GENERATION_TYPE) -> object:
         '''
             Returns the model object
             Input params:
+                pretrained: bool, whether to use a pretrained model or not
+                pretrained_path: str, the path to the pretrained model
                 model_name: str, name of the model to be used | default: MBart | options: MBart
         '''
+        if self.verbose: print("Getting the model...")
         if model_name == MBART_MODEL_CONDITIONAL_GENERATION_TYPE:
             return BartForConditionalGeneration(
-                pretrained=self.use_pretrained,
-                pretrained_path=self.from_pretrained
+                pretrained=pretrained,
+                pretrained_path=pretrained_path
             ).model
         else:
             raise NotImplementedError(f"Model {model_name} not implemented")
-
-    def _configure_optimizer(self) -> None:
-        pass
-
-    def _configure_scheduler(self) -> None:
-        pass
-
-    def _configure_criterion(self) -> None:
-        pass
-
-    def _configure_model(self) -> None:
-        pass
-
-    def _configure_trainer(self) -> None:
-        pass
-
-    def train(self) -> None:
-        pass
-    
-    def _configure_training_arguments(self) -> TrainingArguments:
-        return TrainingArguments(
-            output_dir=self.save_path_dir,
-            num_train_epochs=self.epochs,
-            per_device_train_batch_size=self.train_batch_size,
-            per_device_eval_batch_size=self.validation_batch_size
-        )
     
     def _freeze_weights(self) -> None:
         '''
             Freezes the weights of the model given a list of layers to be trained, if no list is provided, all the layers are frozen
         '''
-        if self.verbose: print("Freezing the model...")
+        if self.verbose: print("\nFreezing the model...")
         for name, param in self.model.named_parameters():
             if self.trainable_layers and name in self.trainable_layers:
                 param.requires_grad = True
             else:
                 param.requires_grad = False
-        if self.trainable_layers is None:
-            self.skip_train = True
     
-    def _save(self, model: object) -> None:
+    def _configure_collator(self) -> None:
         '''
-            This function saves the model
-            Input params: model - a model object
+            This function configures the collator
         '''
-        os.makedirs(self.save_path_dir, exist_ok=True)
-        model.to("cpu")
-        torch.save({
-            'epoch': self.epochs,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            }, self.save_path)
-        print(f"Model saved to -> {self.save_path}...")
-        model.to(self.device)
-
-    def _train(self) -> tuple:
-
-        training_args = self._configure_training_arguments()
-
-        trainer = Trainer(
-            model=self.model,
-            args=training_args,
-            train_dataset=self.train_dataset,
-            eval_dataset=self.validation_dataset,
-            optimizers=(self.optimizer, self.scheduler)
+        if self.verbose: print("\nConfiguring collator...")
+        self.data_collator = DataCollatorWithPadding(
+            tokenizer=self.encoder_tokenizer,
+            padding=self.encoder_padding,
+            max_length=self.encoder_max_length,
+            return_tensors=self.encoder_return_tensors
         )
-        
-        trainer.train()
-
-        # Save the trained model
-        self.model.save_pretrained(self.save_path)
-        return (self.model.to("cpu"), self.best_model.to("cpu"))
-
+    
     def _configure_optimizers(self) -> None:
         '''
             This function configures the optimizer and scheduler.
@@ -190,34 +194,223 @@ class CodeMixedModelHGTrainer:
             raise NotImplementedError(f"Scheduler {MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_TYPE} not implemented.")
         self.optimizer = optimizer
         self.scheduler = scheduler
+    
+    def _configure_generate_config(self) -> None:
+        '''
+            This function configures the generate config.
+        '''
+        if self.verbose: print("\nConfiguring generate config...")
+        self.generate_config = GenerationConfig(**self.generate_config)
+    
+    def _get_eval_data_loader(self, eval_dataset: Dataset) -> DataLoader:
+        '''
+            This function returns the eval data loader
+            Input params:
+                eval_dataset: Dataset, the eval dataset
+        '''
+        return self.trainer.get_eval_dataloader(eval_dataset=eval_dataset)
+    
+    def _get_test_data_loader(self, test_dataset: Dataset) -> DataLoader:
+        '''
+            This function returns the test data loader
+            Input params:
+                test_dataset: Dataset, the test dataset
+        '''
+        return self.trainer.get_test_dataloader(test_dataset=test_dataset)
 
-    def load_model(self) -> object:
+    def _generate(self, input_ids: torch.LongTensor, model: BartForConditionalGeneration = None) -> str:
         '''
-            Loads the saved model
+            This function generates the translation.
+            Input params:
+                input_ids: torch.LongTensor, the input ids
+                model: BartForConditionalGeneration, the model to be used for inference
+            Returns: str, the translated sentence
         '''
-        if self.verbose:
-            print("Loading model...")
-        self.model = self._get_model(self.model_name)
-        if self.saved_model_path is not None:
-            state_dict = torch.load(self.saved_model_path, map_location=torch.device("cpu"))
-            if 'model_state_dict' in state_dict:
-                self.model.load_state_dict(state_dict['model_state_dict'])
+        if model is None:
+            model = self.model
+        return model.generate(
+            input_ids=input_ids,
+            generation_config=self.generate_config
+        )
+    
+    def _compute_bleu(self, true_ids: torch.LongTensor, logits: torch.LongTensor) -> float:
+        '''
+            This function computes the BLEU score.
+            Input params:
+                true_ids: torch.LongTensor, the true ids
+                logits: torch.LongTensor, the logits form the model
+            Returns: float, the BLEU score
+        '''
+        y = true_ids.tolist()
+        y_hat = torch.argmax(logits, dim=-1)
+        y_hat = y_hat.tolist()
+        assert len(y) == len(y_hat), "Length of true and predicted sequences not equal..."
+        references, predictions = [], []
+        for i in range(len(y)):
+            if -100 in y[i]:
+                y_cleaned = y[i][: y[i].index(-100)]
             else:
-                self.model.load_state_dict(state_dict)
-            if 'epoch' in state_dict:
-                self.start_epoch = state_dict['epoch']
-            if self.verbose:
-                print(f"Loaded model from {self.saved_model_path}...")
+                y_cleaned = y[i]
+            if self.decoder_tokenizer.eos_token_id in y_hat[i]:
+                y_hat_cleaned = y_hat[i][: y_hat[i].index(self.decoder_tokenizer.eos_token_id)+1]
+            else:
+                y_hat_cleaned = y_hat[i]
+            ref = self.decoder_tokenizer.decode(y_cleaned, skip_special_tokens=True).split()
+            references.append([ref])
+            pred = self.decoder_tokenizer.decode(y_hat_cleaned, skip_special_tokens=True).split()
+            if pred is None or len(pred) == 0:
+                pred = [""]
+            predictions.append(pred)
+            break
+        return self.bleu_metric.compute(
+            predictions=predictions,
+            references=references
+        )["bleu"]
+    
+    def _configure_training_arguments(self) -> TrainingArguments:
+        '''
+            This function configures the training arguments
+        '''
+        if self.verbose: print("\nConfiguring training arguments...")
+        os.makedirs(self.save_path_dir, exist_ok=True)
+        if self.log_path is not None:
+            os.makedirs(self.log_path, exist_ok=True)
+        args = TrainingArguments(
+            output_dir=self.save_path_dir,
+            do_train=self.do_train,
+            do_eval=self.do_eval,
+            do_predict=self.do_predict,
+            evaluation_strategy=self.evalualtion_strategy,
+            num_train_epochs=self.epochs,
+            logging_dir=self.log_path
+        )
+        args.set_dataloader(train_batch_size=self.train_batch_size, eval_batch_size=self.validation_batch_size)
+        args.set_testing(batch_size=self.test_batch_size)
+        return args
+
+    def _configure_trainer(self) -> None:
+        '''
+            This function configures the trainer
+        '''
+        if self.verbose: print("\nConfiguring trainer...")
+        self.training_args = self._configure_training_arguments()
+        self.trainer = Trainer(
+            model=self.model,
+            args=self.training_args,
+            train_dataset=self.train_dataset,
+            eval_dataset=self.validation_dataset,
+            optimizers=(self.optimizer, self.scheduler),
+            data_collator=self.data_collator
+        )
+
+    def _configure(self) -> None:
+        '''
+            This function configures the model
+        '''
+        self.model = self._get_model()
+        if self.freeze: self._freeze_weights()
+        self._configure_optimizers()
+        self._configure_collator()
+        self._configure_trainer()
+        self._configure_generate_config()
+
+    def _train(self) -> None:
+        '''
+            This function trains the model
+        '''
+        checkpoint = None
+        self.model.train()
+        if self.resume_from_checkpoint is not None:
+            checkpoint = self.resume_from_checkpoint
+        elif self.training_args.resume_from_checkpoint is not None:
+            checkpoint = self.training_args.resume_from_checkpoint
+        train_result = self.trainer.train(resume_from_checkpoint=checkpoint)
+        self.trainer.save_model()
+        metrics = train_result.metrics
+        metrics["train_samples"] = len(self.train_dataset)
+        self.trainer.log_metrics("train", metrics)
+        self.trainer.save_metrics("train", metrics)
+        self.trainer.save_state()
+
+    def _evaluate(self, eval_dataset: Dataset = None) -> None:
+        '''
+            This function evaluates the model
+            Input params:
+                eval_dataset: Dataset, the eval dataset
+        '''
+        if eval_dataset is None:
+            eval_dataset = self.validation_dataset
+        metrics = self.trainer.evaluate()
+        metrics = {}
+        metrics["validation_samples"] = len(eval_dataset)
+        bleu_score = 0
+        self.model.eval()
+        for _, batch in enumerate(tqdm(self._get_eval_data_loader(eval_dataset=eval_dataset), desc="Evaluating bleu score")):
+            with torch.no_grad():
+                out = self.model(
+                    input_ids=batch["input_ids"],
+                    attention_mask=batch["attention_mask"],
+                    decoder_input_ids=batch["decoder_input_ids"],
+                    decoder_attention_mask=batch["decoder_attention_mask"],
+                    labels=batch["labels"]
+                )
+                logits = out.logits
+                bleu_score += self._compute_bleu(true_ids=batch["decoder_input_ids"], logits=logits)
+        bleu_score /= len(self._get_eval_data_loader(eval_dataset=eval_dataset))
+        metrics["bleu"] = bleu_score
+        self.trainer.log_metrics("validation", metrics)
+        self.trainer.save_metrics("validation", metrics)
+
+    def _predict(self, test_dataset: Dataset = None, model: BartForConditionalGeneration = None) -> None:
+        '''
+            This function predicts the model
+            Input params:
+                test_dataset: Dataset, the test dataset
+                model: BartForConditionalGeneration, the model to be used for inference
+        '''
+        if test_dataset is None:
+            test_dataset = self.test_dataset
+        if model is None:
+            model = self.model
+        bleu_score = 0
+        model.eval()
+        for _, batch in enumerate(tqdm(self._get_test_data_loader(test_dataset=test_dataset), desc="Predicting strings")):
+            with torch.no_grad():
+                out = model(
+                    input_ids=batch["input_ids"],
+                    attention_mask=batch["attention_mask"],
+                    decoder_input_ids=batch["decoder_input_ids"],
+                    decoder_attention_mask=batch["decoder_attention_mask"],
+                    labels=batch["labels"]
+                )
+                logits = out.logits
+                bleu_score += self._compute_bleu(true_ids=batch["decoder_input_ids"], logits=logits)
+        bleu_score /= len(self._get_test_data_loader(test_dataset=test_dataset))
+        print("BLEU Score on the test data: ", bleu_score)
+            
+    def _fit(self) -> tuple:
+        '''
+            This function fits the model
+            Input params: None
+            Returns: tuple of the model and the best model
+        '''
+        if self.training_args.do_train:
+            if self.verbose: print("\nTraining the model...")
+            self._train()
         else:
-            if self.verbose:
-                print("No saved model to load as `saved_model_path` was not provided or is None.")
-        self.model.to(self.device)
-        if self.freeze:
-            self._freeze_weights()
-        self.best_model = copy.deepcopy(self.model)
-        if self.verbose:
-            print(self.model)
-        return self.model
+            print("Skipping training as `do_train` is False...")
+    
+    def _validate(self) -> tuple:
+        '''
+            This function evaluates the model
+            Input params: None
+            Returns: tuple of the model and the best model
+        '''
+        if self.training_args.do_eval:
+            if self.verbose: print("\nValidating the model...")
+            self._evaluate()
+        else:
+            print("Skipping evaluation as `do_eval` is False...")
     
     def fit(self) -> tuple:
         '''
@@ -225,9 +418,29 @@ class CodeMixedModelHGTrainer:
             Input params: None
             Returns: tuple of the model and the best model
         '''
-        _ = self.load_model()
-        self._configure_optimizers()
-        return self._train()
+        self._fit()
+        self._validate()
+
+    def predict(self, model_path: str = None) -> tuple:
+        '''
+            This function predicts the model
+            Input params:
+                model_path: str, path to the model to be loaded
+            Returns: tuple of the model and the best model
+        '''
+        if self.training_args.do_predict:
+            if model_path is not None:
+                print("Loading the model...")
+                model = BartForConditionalGeneration(
+                        pretrained=True,
+                        pretrained_path=model_path).model
+            else:
+                model = self.model
+            if self.verbose: print("\nGenerating translations...\n")
+            self._predict(model=model)
+        else:
+            print("Skipping prediction as `do_predict` is False...")
+
 
 class CodeMixedModel:
 
@@ -259,12 +472,12 @@ class CodeMixedModel:
                  encoder_add_special_tokens: bool = MBART_ENCODER_ADD_SPECIAL_TOKENS,
                  encoder_max_length: int = MBART_ENCODER_MAX_LENGTH,
                  encoder_return_tensors: str = MBART_ENCODER_RETURN_TENSORS,
-                 encoder_padding: bool = MBART_ENCODER_PADDING,
+                 encoder_padding: Union[bool, str] = MBART_ENCODER_PADDING,
                  encoder_verbose: bool = MBART_ENCODER_VERBOSE,
                  decoder_add_special_tokens: bool = MBART_DECODER_ADD_SPECIAL_TOKENS,
                  decoder_max_length: int = MBART_DECODER_MAX_LENGTH,
                  decoder_return_tensors: str = MBART_DECODER_RETURN_TENSORS,
-                 decoder_padding: bool = MBART_DECODER_PADDING,
+                 decoder_padding: Union[bool, str] = MBART_DECODER_PADDING,
                  decoder_verbose: bool = MBART_DECODER_VERBOSE,
                  verbose: bool = MBART_MODEL_CONDITIONAL_GENERATION_VERBOSE,
                  verbose_step: int = MBART_MODEL_CONDITIONAL_GENERATION_VERBOSE_STEP,

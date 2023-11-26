@@ -1,11 +1,12 @@
 import pandas as pd
 from tqdm import tqdm
+from typing import Union
 from torch.utils.data import Dataset
 from transformers import BartTokenizer
 from torch.utils.data import DataLoader
 from src.machine_translation import *
 
-
+    
 class CodeMixedDataset(Dataset):
 
     '''
@@ -70,13 +71,15 @@ class CodeMixedTokenizedDataset(Dataset):
                  encoder_add_special_tokens: bool = True,
                  encoder_max_length: int = None,
                  encoder_return_tensors: str = "pt",
-                 encoder_padding: bool = True,
+                 encoder_padding: Union[bool, str] = True,
+                 encoder_truncation: bool = True,
                  encoder_verbose: bool = True,
                  decoder_tokenizer: BartTokenizer = None,
                  decoder_add_special_tokens: bool = True,
                  decoder_max_length: int = None,
                  decoder_return_tensors: str = "pt",
-                 decoder_padding: bool = True,
+                 decoder_padding: Union[bool, str] = True,
+                 decoder_truncation: bool = True,
                  decoder_verbose: bool = True,
                  overfit: bool = False, 
                  overfit_size: int = 32):
@@ -92,12 +95,14 @@ class CodeMixedTokenizedDataset(Dataset):
                 encoder_max_length: int, maximum length of the sequence
                 encoder_return_tensors: str, return tensors for the dataset
                 encoder_padding: bool, if True, the dataset will be padded
+                encoder_truncation: bool, if True, the dataset will be truncated
                 encoder_verbose: bool, if True, the dataset will be printed
                 decoder_tokenizer: BartTokenizer, tokenizer for the target dataset
                 decoder_add_special_tokens: bool, if True, the special tokens will be added
                 decoder_max_length: int, maximum length of the sequence
                 decoder_return_tensors: str, return tensors for the dataset
                 decoder_padding: bool, if True, the dataset will be padded
+                decoder_truncation: bool, if True, the dataset will be truncated
                 decoder_verbose: bool, if True, the dataset will be printed
                 overfit: bool, if True, the dataset will be overfitted on a small sample
                 overfit_size: int, size of the overfit dataset
@@ -112,12 +117,14 @@ class CodeMixedTokenizedDataset(Dataset):
         self.encoder_max_length = encoder_max_length
         self.encoder_return_tensors = encoder_return_tensors
         self.encoder_padding = encoder_padding
+        self.encoder_truncation = encoder_truncation
         self.encoder_verbose = encoder_verbose
         self.decoder_tokenizer = decoder_tokenizer
         self.decoder_add_special_tokens = decoder_add_special_tokens
         self.decoder_max_length = decoder_max_length
         self.decoder_return_tensors = decoder_return_tensors
         self.decoder_padding = decoder_padding
+        self.decoder_truncation = decoder_truncation
         self.decoder_verbose = decoder_verbose
         self.overfit = overfit
         self.overfit_size = overfit_size
@@ -143,6 +150,7 @@ class CodeMixedTokenizedDataset(Dataset):
             add_special_tokens=self.encoder_add_special_tokens,
             return_tensors=self.encoder_return_tensors,
             padding=self.encoder_padding,
+            truncation=self.encoder_truncation,
             verbose=self.encoder_verbose
         )
         decoder_tokenized_text = self.decoder_tokenizer(
@@ -151,16 +159,33 @@ class CodeMixedTokenizedDataset(Dataset):
             add_special_tokens=self.decoder_add_special_tokens,
             return_tensors=self.decoder_return_tensors,
             padding=self.decoder_padding,
+            truncation=self.decoder_truncation,
             verbose=self.decoder_verbose
         )
+        labels = decoder_tokenized_text["input_ids"].flatten()
+        labels[labels == self.decoder_tokenizer.pad_token_id] = -100
         instance = {
             "input_ids": encoder_tokenized_text["input_ids"].flatten(),
             "attention_mask": encoder_tokenized_text["attention_mask"].flatten(),
             "decoder_input_ids": decoder_tokenized_text["input_ids"].flatten(),
-            "labels": decoder_tokenized_text["input_ids"].flatten(),
-            "decoder_attention_mask": decoder_tokenized_text["attention_mask"].flatten()
+            "decoder_attention_mask": decoder_tokenized_text["attention_mask"].flatten(),
+            "labels": labels,
         }
         return instance
+    
+    def visualize(self) -> None:
+        '''
+            This function is used to visualize the dataset results.
+        '''
+        print('#'*100)
+        print("Dataset")
+        print("Number of instances: ", len(self))
+        print("Denoising stage: ", self.denoising_stage)
+        print("Source language: ", self.src_lang)
+        print("Target language: ", self.tgt_lang)
+        for k, v in self[1].items():
+            print(f"Key: {k}, Value: {v}, Value shape: {v.size()}")
+        print('#'*100)
 
 
 class CodeMixedDataLoader(DataLoader):
@@ -183,13 +208,15 @@ class CodeMixedDataLoader(DataLoader):
                  encoder_add_special_tokens: bool = True,
                  encoder_max_length: int = None,
                  encoder_return_tensors: str = "pt",
-                 encoder_padding: bool = True,
+                 encoder_padding: Union[bool, str] = True,
+                 encoder_truncation: bool = True,
                  encoder_verbose: bool = True,
                  decoder_tokenizer: BartTokenizer = None,
                  decoder_add_special_tokens: bool = True,
                  decoder_max_length: int = None,
                  decoder_return_tensors: str = "pt",
-                 decoder_padding: bool = True,
+                 decoder_padding: Union[bool, str] = True,
+                 decoder_truncation: bool = True,
                  decoder_verbose: bool = True,
                  denoising_stage: bool = False,
                  src_lang: str = "hi_en",
@@ -216,12 +243,14 @@ class CodeMixedDataLoader(DataLoader):
                 encoder_max_length: int, maximum length of the sequence
                 encoder_return_tensors: str, return tensors for the dataset
                 encoder_padding: bool, if True, the dataset will be padded
+                encoder_truncation: bool, if True, the dataset will be truncated
                 encoder_verbose: bool, if True, the dataset will be printed
                 decoder_tokenizer: BartTokenizer, tokenizer for the target dataset
                 decoder_add_special_tokens: bool, if True, the special tokens will be added
                 decoder_max_length: int, maximum length of the sequence
                 decoder_return_tensors: str, return tensors for the dataset
                 decoder_padding: bool, if True, the dataset will be padded
+                decoder_truncation: bool, if True, the dataset will be truncated
                 decoder_verbose: bool, if True, the dataset will be printed
                 denoising_stage: bool, if True, the dataset will be used for denoising
                 src_lang: str, source language
@@ -254,12 +283,14 @@ class CodeMixedDataLoader(DataLoader):
         self.encoder_max_length = encoder_max_length
         self.encoder_return_tensors = encoder_return_tensors
         self.encoder_padding = encoder_padding
+        self.encoder_truncation = encoder_truncation
         self.encoder_verbose = encoder_verbose
         self.decoder_tokenizer = decoder_tokenizer
         self.decoder_add_special_tokens = decoder_add_special_tokens
         self.decoder_max_length = decoder_max_length
         self.decoder_return_tensors = decoder_return_tensors
         self.decoder_padding = decoder_padding
+        self.decoder_truncation = decoder_truncation
         self.decoder_verbose = decoder_verbose
         self.denoising_stage = denoising_stage
         self.src_lang = src_lang
@@ -286,6 +317,7 @@ class CodeMixedDataLoader(DataLoader):
             add_special_tokens=self.encoder_add_special_tokens,
             return_tensors=self.encoder_return_tensors,
             padding=self.encoder_padding,
+            truncation=self.encoder_truncation,
             verbose=self.encoder_verbose
         )
         decoder_tokenized_text = self.decoder_tokenizer(
@@ -294,6 +326,7 @@ class CodeMixedDataLoader(DataLoader):
             add_special_tokens=self.decoder_add_special_tokens,
             return_tensors=self.decoder_return_tensors,
             padding=self.decoder_padding,
+            truncation=self.decoder_truncation,
             verbose=self.decoder_verbose
         )
         batch["src_tokenized"] = encoder_tokenized_text["input_ids"]

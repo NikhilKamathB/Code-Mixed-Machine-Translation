@@ -95,16 +95,18 @@
         "dataloader": {
             "encoder": {
                 "add_special_tokens": true,
-                "max_length": null,
+                "max_length": 25,
                 "return_tensors": "pt",
-                "padding": true,
+                "padding": "max_length",
+                "truncation": true,
                 "verbose": true
             },
             "decoder": {
                 "add_special_tokens": true,
-                "max_length": null,
+                "max_length": 25,
                 "return_tensors": "pt",
-                "padding": true,
+                "padding": "max_length",
+                "truncation": true,
                 "verbose": true
             },
             "translations": {
@@ -120,19 +122,25 @@
         "model": {
             "bart_for_conditional_generation": {
                 "type": "BartForConditionalGeneration",
-                "device": "mps",
-                "epochs": 50,
+                "device": "cpu",
+                "epochs": 0.05,
                 "save_model": true,
                 "save_to_gcp": true,
                 "save_path": "../runs/models/bart_for_conditional_generation",
+                "log_path": null,
                 "load_path": null,
                 "use_pretrained": true,
                 "from_pretrained": "facebook/bart-large",
                 "vocab_size": 50265,
                 "verbose": true,
                 "verbose_step": 100,
-                "freeze_model": true,
+                "freeze_model": false,
                 "k_random": 7,
+                "resume_from_checkpoint": "../runs/models/bart_for_conditional_generation/checkpoint-500",
+                "do_train": true,
+                "do_eval": true,
+                "do_predict": true,
+                "evaluation_strategy": "steps",
                 "criterion": {
                     "type": "CrossEntropyLoss",
                     "weight": null,
@@ -156,7 +164,7 @@
                 },
                 "scheduler": {
                     "type": "get_linear_schedule_with_warmup",
-                    "num_warmup_steps": 10,
+                    "num_warmup_steps": 1000,
                     "num_training_steps": 50,
                     "last_epoch": -1
                 },

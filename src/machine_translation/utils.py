@@ -1,10 +1,98 @@
 import pandas as pd
+from typing import Union
 from google.cloud import storage
 from collections import defaultdict
 from transformers import BartTokenizer
 from src.machine_translation import *
 from src.machine_translation.data import CodeMixedDataLoader, CodeMixedTokenizedDataset
 
+
+def get_tokenized_dataset_models(
+        src: str = "src",
+        tgt: str = "tgt",
+        train_df: pd.DataFrame = None,
+        validation_df: pd.DataFrame = None,
+        test_df: pd.DataFrame = None,
+        encoder_tokenizer: BartTokenizer = None,
+        encoder_add_special_tokens: bool = MBART_ENCODER_ADD_SPECIAL_TOKENS,
+        encoder_max_length: int = MBART_ENCODER_MAX_LENGTH,
+        encoder_return_tensors: str = MBART_ENCODER_RETURN_TENSORS,
+        encoder_padding: Union[bool, str] = MBART_ENCODER_PADDING,
+        encoder_truncation: bool = MBART_ENCODER_TRUNCATION,
+        encoder_verbose: bool = MBART_ENCODER_VERBOSE,
+        decoder_tokenizer: BartTokenizer = None,
+        decoder_add_special_tokens: bool = MBART_DECODER_ADD_SPECIAL_TOKENS,
+        decoder_max_length: int = MBART_DECODER_MAX_LENGTH,
+        decoder_return_tensors: str = MBART_DECODER_RETURN_TENSORS,
+        decoder_padding: Union[bool, str] = MBART_DECODER_PADDING,
+        decoder_truncation: bool = MBART_DECODER_TRUNCATION,
+        decoder_verbose: bool = MBART_DECODER_VERBOSE,
+        denoising_stage: bool = False,
+        overfit: bool = False,
+        overfit_size: int = 32) -> dict:
+    """
+    Description: Returns the tokenized datasets for all src->tgt languages mentioned in the `config.json` file.
+    Input parameters:
+        - src: A string containing the source language in config dict.
+        - tgt: A string containing the target language in condif dict.
+        - train_df: A pandas dataframe containing the training data.
+        - validation_df: A pandas dataframe containing the validation data.
+        - test_df: A pandas dataframe containing the test data.
+        - encoder_tokenizer: A BART tokenizer object for the encoder.
+        - encoder_add_special_tokens: A boolean value indicating whether to add special tokens to the encoder.
+        - encoder_max_length: An integer containing the maximum length of the encoder.
+        - encoder_return_tensors: A string containing the return tensor type for the encoder.
+        - encoder_padding: A boolean value indicating whether to pad the encoder.
+        - encoder_truncation: A boolean value indicating whether to truncate the encoder.
+        - encoder_verbose: A boolean value indicating whether to print verbose logs for the encoder.
+        - decoder_tokenizer: A BART tokenizer object for the decoder.
+        - decoder_add_special_tokens: A boolean value indicating whether to add special tokens to the decoder.
+        - decoder_max_length: An integer containing the maximum length of the decoder.
+        - decoder_return_tensors: A string containing the return tensor type for the decoder.
+        - decoder_padding: A boolean value indicating whether to pad the decoder.
+        - decoder_truncation: A boolean value indicating whether to truncate the decoder.
+        - decoder_verbose: A boolean value indicating whether to print verbose logs for the decoder.
+        - denoising_stage: A boolean value indicating whether the data loader is being used for denoising stage.
+        - overfit: A boolean value indicating whether to overfit the data loader.
+        - overfit_size: An integer containing the batch size for overfitting.
+    Returns: A dictionary containing the data loader models for all translations.
+    """
+    dataset = defaultdict(dict)
+    for task, translations in MBART_DATALOADER_TRANSLATION_MODELS.items():
+        src, tgt = translations["src"], translations["tgt"]
+        config = {
+            "denoising_stage": denoising_stage,
+            "src_lang": src,
+            "tgt_lang": tgt,
+            "encoder_tokenizer": encoder_tokenizer,
+            "encoder_add_special_tokens": encoder_add_special_tokens,
+            "encoder_max_length": encoder_max_length,
+            "encoder_return_tensors": encoder_return_tensors,
+            "encoder_padding": encoder_padding,
+            "encoder_truncation": encoder_truncation,
+            "encoder_verbose": encoder_verbose,
+            "decoder_tokenizer": decoder_tokenizer,
+            "decoder_add_special_tokens": decoder_add_special_tokens,
+            "decoder_max_length": decoder_max_length,
+            "decoder_return_tensors": decoder_return_tensors,
+            "decoder_padding": decoder_padding,
+            "decoder_truncation": decoder_truncation,
+            "decoder_verbose": decoder_verbose,
+            "overfit": overfit,
+            "overfit_size": overfit_size,
+        }
+        config["data"] = train_df
+        train_dataset = CodeMixedTokenizedDataset(**config)
+        config["data"] = validation_df
+        validation_dataset = CodeMixedTokenizedDataset(**config)
+        config["data"] = test_df
+        test_dataset = CodeMixedTokenizedDataset(**config)
+        dataset[task] = {
+            "train": train_dataset,
+            "validation": validation_dataset,
+            "test": test_dataset
+        }
+    return dataset
 
 def get_data_loader_models(
         src: str = "src",
@@ -22,13 +110,15 @@ def get_data_loader_models(
         encoder_add_special_tokens: bool = MBART_ENCODER_ADD_SPECIAL_TOKENS,
         encoder_max_length: int = MBART_ENCODER_MAX_LENGTH,
         encoder_return_tensors: str = MBART_ENCODER_RETURN_TENSORS,
-        encoder_padding: bool = MBART_ENCODER_PADDING,
+        encoder_padding: Union[bool, str] = MBART_ENCODER_PADDING,
+        encoder_truncation: bool = MBART_ENCODER_TRUNCATION,
         encoder_verbose: bool = MBART_ENCODER_VERBOSE,
         decoder_tokenizer: BartTokenizer = None,
         decoder_add_special_tokens: bool = MBART_DECODER_ADD_SPECIAL_TOKENS,
         decoder_max_length: int = MBART_DECODER_MAX_LENGTH,
         decoder_return_tensors: str = MBART_DECODER_RETURN_TENSORS,
-        decoder_padding: bool = MBART_DECODER_PADDING,
+        decoder_padding: Union[bool, str] = MBART_DECODER_PADDING,
+        decoder_truncation: bool = MBART_DECODER_TRUNCATION,
         decoder_verbose: bool = MBART_DECODER_VERBOSE,
         denoising_stage: bool = False,
         overfit: bool = False,
@@ -54,12 +144,14 @@ def get_data_loader_models(
         - encoder_max_length: An integer containing the maximum length of the encoder.
         - encoder_return_tensors: A string containing the return tensor type for the encoder.
         - encoder_padding: A boolean value indicating whether to pad the encoder.
+        - encoder_truncation: A boolean value indicating whether to truncate the encoder.
         - encoder_verbose: A boolean value indicating whether to print verbose logs for the encoder.
         - decoder_tokenizer: A BART tokenizer object for the decoder.
         - decoder_add_special_tokens: A boolean value indicating whether to add special tokens to the decoder.
         - decoder_max_length: An integer containing the maximum length of the decoder.
         - decoder_return_tensors: A string containing the return tensor type for the decoder.
         - decoder_padding: A boolean value indicating whether to pad the decoder.
+        - decoder_truncation: A boolean value indicating whether to truncate the decoder.
         - decoder_verbose: A boolean value indicating whether to print verbose logs for the decoder.
         - denoising_stage: A boolean value indicating whether the data loader is being used for denoising stage.
         - overfit: A boolean value indicating whether to overfit the data loader.
@@ -86,12 +178,14 @@ def get_data_loader_models(
             "encoder_max_length": encoder_max_length,
             "encoder_return_tensors": encoder_return_tensors,
             "encoder_padding": encoder_padding,
+            "encoder_truncation": encoder_truncation,
             "encoder_verbose": encoder_verbose,
             "decoder_tokenizer": decoder_tokenizer,
             "decoder_add_special_tokens": decoder_add_special_tokens,
             "decoder_max_length": decoder_max_length,
             "decoder_return_tensors": decoder_return_tensors,
             "decoder_padding": decoder_padding,
+            "decoder_truncation": decoder_truncation,
             "decoder_verbose": decoder_verbose,
             "denoising_stage": denoising_stage,
             "src_lang": src,
@@ -110,87 +204,6 @@ def get_data_loader_models(
             "test": test_data_loader
         }
     return data_loaders
-
-def get_tokenized_dataset(
-        src: str = "src",
-        tgt: str = "tgt",
-        train_df: pd.DataFrame = None,
-        validation_df: pd.DataFrame = None,
-        test_df: pd.DataFrame = None,
-        encoder_tokenizer: BartTokenizer = None,
-        encoder_add_special_tokens: bool = MBART_ENCODER_ADD_SPECIAL_TOKENS,
-        encoder_max_length: int = MBART_ENCODER_MAX_LENGTH,
-        encoder_return_tensors: str = MBART_ENCODER_RETURN_TENSORS,
-        encoder_padding: bool = MBART_ENCODER_PADDING,
-        encoder_verbose: bool = MBART_ENCODER_VERBOSE,
-        decoder_tokenizer: BartTokenizer = None,
-        decoder_add_special_tokens: bool = MBART_DECODER_ADD_SPECIAL_TOKENS,
-        decoder_max_length: int = MBART_DECODER_MAX_LENGTH,
-        decoder_return_tensors: str = MBART_DECODER_RETURN_TENSORS,
-        decoder_padding: bool = MBART_DECODER_PADDING,
-        decoder_verbose: bool = MBART_DECODER_VERBOSE,
-        denoising_stage: bool = False,
-        overfit: bool = False,
-        overfit_size: int = 32) -> dict:
-    """
-    Description: Returns the tokenized datasets for all src->tgt languages mentioned in the `config.json` file.
-    Input parameters:
-        - src: A string containing the source language in config dict.
-        - tgt: A string containing the target language in condif dict.
-        - train_df: A pandas dataframe containing the training data.
-        - validation_df: A pandas dataframe containing the validation data.
-        - test_df: A pandas dataframe containing the test data.
-        - encoder_tokenizer: A BART tokenizer object for the encoder.
-        - encoder_add_special_tokens: A boolean value indicating whether to add special tokens to the encoder.
-        - encoder_max_length: An integer containing the maximum length of the encoder.
-        - encoder_return_tensors: A string containing the return tensor type for the encoder.
-        - encoder_padding: A boolean value indicating whether to pad the encoder.
-        - encoder_verbose: A boolean value indicating whether to print verbose logs for the encoder.
-        - decoder_tokenizer: A BART tokenizer object for the decoder.
-        - decoder_add_special_tokens: A boolean value indicating whether to add special tokens to the decoder.
-        - decoder_max_length: An integer containing the maximum length of the decoder.
-        - decoder_return_tensors: A string containing the return tensor type for the decoder.
-        - decoder_padding: A boolean value indicating whether to pad the decoder.
-        - decoder_verbose: A boolean value indicating whether to print verbose logs for the decoder.
-        - denoising_stage: A boolean value indicating whether the data loader is being used for denoising stage.
-        - overfit: A boolean value indicating whether to overfit the data loader.
-        - overfit_size: An integer containing the batch size for overfitting.
-    Returns: A dictionary containing the data loader models for all translations.
-    """
-    dataset = defaultdict(dict)
-    for task, translations in MBART_DATALOADER_TRANSLATION_MODELS.items():
-        src, tgt = translations["src"], translations["tgt"]
-        config = {
-            "denoising_stage": denoising_stage,
-            "src_lang": src,
-            "tgt_lang": tgt,
-            "encoder_tokenizer": encoder_tokenizer,
-            "encoder_add_special_tokens": encoder_add_special_tokens,
-            "encoder_max_length": encoder_max_length,
-            "encoder_return_tensors": encoder_return_tensors,
-            "encoder_padding": encoder_padding,
-            "encoder_verbose": encoder_verbose,
-            "decoder_tokenizer": decoder_tokenizer,
-            "decoder_add_special_tokens": decoder_add_special_tokens,
-            "decoder_max_length": decoder_max_length,
-            "decoder_return_tensors": decoder_return_tensors,
-            "decoder_padding": decoder_padding,
-            "decoder_verbose": decoder_verbose,
-            "overfit": overfit,
-            "overfit_size": overfit_size,
-        }
-        config["data"] = train_df
-        train_dataset = CodeMixedTokenizedDataset(**config)
-        config["data"] = validation_df
-        validation_dataset = CodeMixedTokenizedDataset(**config)
-        config["data"] = test_df
-        test_dataset = CodeMixedTokenizedDataset(**config)
-        dataset[task] = {
-            "train": train_dataset,
-            "validation": validation_dataset,
-            "test": test_dataset
-        }
-    return dataset
 
 def upload_blob(bucket_name: str, source_file_name: str, destination_blob_name: str) -> bool:
     """

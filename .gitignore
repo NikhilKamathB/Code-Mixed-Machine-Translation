@@ -41,6 +41,9 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*checkpoint-*
+*runs/models*
+*runs/tokenizer*
 MANIFEST
 
 # PyInstaller

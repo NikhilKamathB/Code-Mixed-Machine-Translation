@@ -176,5 +176,9 @@
                 }
             }
         }
+    },
+    "gpt4_turbo":{
+        "response_save_path": "../runs/openapi_response/api_response.txt",
+        "prediction_df_save_path": "../runs/openapi_response/predictions.csv"
     }
 }

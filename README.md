@@ -27,23 +27,27 @@ Code-Mixed-Machine-Translation Repo.
 - [X]  Data acquisition
     - You can get the data from the [google drive](https://drive.google.com/drive/folders/1upcPGjw2WwTWYEsSx67IlLWHlvNFJ3Oo?usp=sharing).
     - Once downloaded, place these files inside `./data/raw`. Alternatively, you may change this by setting the `data.base_dir` and `data.dataset-name.dataset.<split>` attributes in the `config.json` file.
-- [ ]  Data annotations/preparation
-    - [ ] Data annotations (when using multiple sources, not applicable for now)
-    - [ ] Data cleaning
-    - [ ] Data pre-processing
-    - [ ] EDA
-    - [ ] Feature engineering
-- [ ] Machine translation pipeline
-    - [ ] Define custom dataset and dataloaders
-    - [ ] Model architecture definition
-    - [ ] Training/Validation/Testing script
-    - [ ] Report/Result geenration script
+- [X]  Data annotations/preparation
+    - [X]  Data annotations (when using multiple sources, not applicable for now)
+    - [X]  Data cleaning
+    - [X]  Data pre-processing
+    - [X]  EDA
+    - [X]  Feature engineering
+- [X]  Machine translation pipeline
+    - [X]  Define custom dataset and dataloaders
+    - [X]  Model architecture definition
+    - [X]  Training/Validation/Testing script
+    - [X]  Report/Result geenration script
 
 ## Environment Variables
 Any environment variables used in this project must be mentioned here.
+```
+TOKENIZERS_PARALLELISM=False
+GOOGLE_APPLICATION_CREDENTIALS=[Optional]
+```
 
 ## References
-Any references to papers/articles/codebase/notes goes here. Please mention it here.
+* Mentioned in report.
 
 ## Notes
 * **As much as possible, try to stick to this template. Any improvement/suggestion to this organization is always welcome.**

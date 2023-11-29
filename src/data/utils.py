@@ -4,24 +4,33 @@ from datasets import load_dataset as hg_load_dataset
 from src.data import *
 
 
-def extract_translation(dataset: object, lang_keys: list = ["en", "hi_en"]) -> dict:
+def extract_translation(dataset: object, lang_keys: list = ["en", "hi_en"], source_name: str = "huggingface") -> dict:
     """
     Description: Extract the translation from the dataset.
     Assumption: The dataset must contain a column named "translation".
                 Each row of the column "translation" must be a dictionary with keys as language codes and values as translations.
     Input parameters:
         - dataset: A dataset object.
+        - lang_keys: A list of language codes.
+        - source_name: A string containing the name of the source.
     Returns: A dictionary containing the pandas dataframe dataset.
     """
 
     df = {}
 
     def process(df_split: pd.DataFrame, split: str = "train") -> None:
+        '''
+            This function is used to process the dataframe.
+            Input params:
+                - df_split: A pandas dataframe containing the data.
+                - split: A string containing the split name.
+        '''
         df_split.loc[:, "en"] = df_split["translation"].apply(lambda x: x[lang_keys[0]])
         df_split.loc[:, "hi_en"] = df_split["translation"].apply(lambda x: x[lang_keys[1]])
         df_split = df_split[["en", "hi_en"]]
         df_split = df_split.iloc[:, ::-1]
         df_split.columns = PROCESSED_COLUMN_NAMES
+        df_split.loc[:, "source"] = source_name
         df[split] = df_split
 
     if isinstance(dataset, Dataset):
@@ -33,15 +42,17 @@ def extract_translation(dataset: object, lang_keys: list = ["en", "hi_en"]) -> d
             process(df_split, split=split)
     return df
 
-def get_huggingface_dataset(dataset_name: str, split: str = None, lang_keys: list = ["en", "hi_en"]) -> dict:
+def get_huggingface_dataset(dataset_name: str, split: str = None, lang_keys: list = ["en", "hi_en"], source_name: str = "huggingface") -> dict:
     """
     Description: Loads a dataset from HuggingFace datasets library.
     Input parameters:
         - dataset_name: Name of the dataset to be loaded.
         - split: Name of the split to be loaded.
+        - lang_keys: A list of language codes.
+        - source_name: A string containing the name of the source.
     Returns: A dictionary containing the dataset.
     """
-    return extract_translation(hg_load_dataset(dataset_name, split=split), lang_keys=lang_keys)
+    return extract_translation(hg_load_dataset(dataset_name, split=split), lang_keys=lang_keys, source_name=source_name)
 
 def load_huggingface_dataset() -> dict:
     """
@@ -52,30 +63,33 @@ def load_huggingface_dataset() -> dict:
     df = {}
     for dataset_name in HUGGINGFACE_DATASET:
         if dataset_name == "cmu_hinglish_dog":
-            df[dataset_name] = get_huggingface_dataset(dataset_name=dataset_name, lang_keys=["en", "hi_en"])
+            df[dataset_name] = get_huggingface_dataset(dataset_name=dataset_name, lang_keys=["en", "hi_en"], source_name="cmu_hinglish_dog")
         elif dataset_name == "findnitai/english-to-hinglish":
-            df[dataset_name] = get_huggingface_dataset(dataset_name=dataset_name, lang_keys=["en", "hi_ng"])
+            df[dataset_name] = get_huggingface_dataset(dataset_name=dataset_name, lang_keys=["en", "hi_ng"], source_name="findnitai/english-to-hinglish")
     return df
 
-def get_hinglish_top_dataset(file_name: str, cols: list = ["en_query", "cs_query"]) -> pd.DataFrame:
+def get_hinglish_top_dataset(file_name: str, cols: list = ["en_query", "cs_query"], source_name: str = "top") -> pd.DataFrame:
     """
     Description: Loads a pandas df from Hinglish Top dataset, given a .tsv file.
     Input parameters:
         - file_name: Name of the file to be loaded.
         - cols: List of columns that must be considered when dropping rows and to be kept.
+        - source_name: Name of the source.
     Returns: A pandas df containing the dataset.
     """
     df = pd.read_table(os.path.join(BASE_DATA_DIR, file_name), skip_blank_lines=True, on_bad_lines='skip')[cols]
     df.dropna(subset=cols, inplace=True)
     df = df.iloc[:, ::-1]
     df.columns = PROCESSED_COLUMN_NAMES
+    df.loc[:, "source"] = source_name
     return df
 
-def load_hinglish_top_dataset(splits: list = ["train", "validation", "test"]) -> dict:
+def load_hinglish_top_dataset(splits: list = ["train", "validation", "test"], source_name: str = "top") -> dict:
     """
     Description: Loads a set of pandas df from Hinglish Top dataset.
     Input parameters:
         - splits: List of splits to be loaded.
+        - source_name: Name of the source.
     Returns: A dictionary containing the datasets.
     """
     dataset = {}
@@ -83,28 +97,31 @@ def load_hinglish_top_dataset(splits: list = ["train", "validation", "test"]) ->
         if split in HINGLISH_TOP_DATASET.keys():
             df = pd.DataFrame()
             for f in HINGLISH_TOP_DATASET[split]:
-                df = pd.concat([df, get_hinglish_top_dataset(file_name=f)], axis=0)
+                df = pd.concat([df, get_hinglish_top_dataset(file_name=f, source_name=source_name)], axis=0)
             dataset[split] = df
     return {HINGLISH_TOP_DATA["name"]: dataset}
 
-def get_linc_dataset(file_name: str) -> pd.DataFrame:
+def get_linc_dataset(file_name: str, source_name: str = "linc") -> pd.DataFrame:
     """
     Description: Loads a pandas df from Linc dataset, given a .txt file.
     Input parameters:
         - file_name: Name of the file to be loaded.
+        - source_name: Name of the source.
     Returns: A pandas df containing the dataset.
     """
     with open(os.path.join(BASE_DATA_DIR, file_name), "r") as f:
         df = pd.DataFrame([line.split("\t") for line in f.readlines()])
     df = df.iloc[:, ::-1]
     df.columns = PROCESSED_COLUMN_NAMES
+    df.loc[:, "source"] = source_name
     return df
 
-def load_linc_dataset(splits: list = ["train", "validation", "test"]) -> dict:
+def load_linc_dataset(splits: list = ["train", "validation", "test"], source_name: str = "linc") -> dict:
     """
     Description: Loads a set of pandas df from Linc dataset.
     Input parameters:
         - splits: List of splits to be loaded.
+        - source_name: Name of the source.
     Returns: A dictionary containing the datasets.
     """
     dataset = {}
@@ -112,7 +129,7 @@ def load_linc_dataset(splits: list = ["train", "validation", "test"]) -> dict:
         if split in LINC_DATASET.keys():
             df = pd.DataFrame()
             for file_name in LINC_DATASET[split]:
-                df = pd.concat([df, get_linc_dataset(file_name=file_name)], axis=0)
+                df = pd.concat([df, get_linc_dataset(file_name=file_name, source_name=source_name)], axis=0)
             dataset[split] = df
     return {LINC_DATA["name"]: dataset}
 
@@ -137,32 +154,32 @@ def load_dataset() -> dict:
     """
     return {**load_huggingface_dataset(), **load_hinglish_top_dataset(), **load_linc_dataset()}
 
-def clean_df(df: pd.DataFrame) -> pd.DataFrame:
+def clean_df(df: pd.DataFrame, subset_cols: list = PROCESSED_COLUMN_NAMES) -> pd.DataFrame:
     """
     Description: Remove any duplicate rows from a dataframe
     Input parameters:
         - df: The input dataframe from which duplicates are to be removed.
+        - subset_cols: A list of columns to be considered when removing duplicates.
     Returns: A dataframe containing no duplicate rows
     """
-    duplicates = df.duplicated()
+    duplicates = df.duplicated(subset=subset_cols)
     has_duplicates = duplicates.any()
     if has_duplicates:
-        df = df.drop_duplicates()
+        df = df.drop_duplicates(subset=subset_cols)
     return df
 
-def remove_data_leaks(df_1: pd.DataFrame, df_2:pd.DataFrame) -> pd.DataFrame:
+def remove_data_leaks(df_1: pd.DataFrame, df_2:pd.DataFrame, subset_cols: list = PROCESSED_COLUMN_NAMES) -> pd.DataFrame:
     """
     Description: Identifies all common rows in df_1 and df_2 and removes its occurences in df_1
     Input parameters:
-        - df_1: Input dataframe 1. Duplicate rows removed from this dataframe
-        - df_2: Input dataframe 2
+        - df_1: Input dataframe 1. Duplicate rows removed from this dataframe.
+        - df_2: Input dataframe 2.
+        - subset_cols: A list of columns to be considered when removing duplicates.
     Returns: df_1 which has no common rows with df_2
     """
-    combined_df = pd.concat([df_1, df_2])
-    duplicates = combined_df.duplicated(keep=False)
-    train_duplicates = duplicates[:len(df_1)]
-    train_df_cleaned = df_1[~train_duplicates]
-    return train_df_cleaned
+    merged_df = df_1.merge(df_2[subset_cols], how='outer', indicator=True, on=subset_cols)
+    cleaned_df = merged_df[merged_df['_merge'] == 'left_only'].drop(columns=['_merge'])
+    return cleaned_df
 
 def get_dataset(remove: bool = True) -> tuple:
     """
@@ -186,6 +203,9 @@ def get_dataset(remove: bool = True) -> tuple:
     train_df = remove_data_leaks(train_df, validation_df)
     train_df = remove_data_leaks(train_df, test_df)
     test_df = remove_data_leaks(test_df, validation_df)
+    train_df = train_df.reset_index(drop=True)
+    validation_df = validation_df.reset_index(drop=True)
+    test_df = test_df.reset_index(drop=True)
     if os.path.exists(os.path.join(PROCESSED_DATA_BASE_DIR, PROCESSED_TRAIN_CSV)) and remove:
         os.remove(os.path.join(PROCESSED_DATA_BASE_DIR, PROCESSED_TRAIN_CSV))
     if not os.path.exists(os.path.join(PROCESSED_DATA_BASE_DIR, PROCESSED_TRAIN_CSV)):

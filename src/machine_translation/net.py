@@ -4,6 +4,7 @@ import time
 import torch
 import random
 import string
+import numpy as np
 from tqdm import tqdm
 from typing import Union
 from datetime import datetime
@@ -32,6 +33,7 @@ class CodeMixedModelHGTrainer:
                  from_pretrained: str = MBART_MODEL_CONDITIONAL_GENERATION_FROM_PRETRAINED,
                  save_path_dir: str = MBART_MODEL_CONDITIONAL_GENERATION_SAVE_PATH,
                  epochs: int = MBART_MODEL_CONDITIONAL_GENERATION_EPOCHS,
+                 device: str = MBART_MODEL_CONDITIONAL_GENERATION_DEVICE,
                  verbose: bool = MBART_MODEL_CONDITIONAL_GENERATION_VERBOSE,
                  verbose_step: int = MBART_MODEL_CONDITIONAL_GENERATION_VERBOSE_STEP,
                  freeze: bool = MBART_MODEL_CONDITIONAL_GENERATION_FREEZE_MODEL,
@@ -45,20 +47,17 @@ class CodeMixedModelHGTrainer:
                  do_predict: bool = MBART_MODEL_CONDITIONAL_GENERATION_DO_PREDICT,
                  evaluation_strategy: str = MBART_MODEL_CONDITIONAL_GENERATION_EVALUALTION_STRATEGY,
                  log_path: str = MBART_MODEL_CONDITIONAL_GENERATION_LOG_PATH,
-                 generate_config: dict = {
-                        "min_length": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_MIN_LENGTH,
-                        "max_length": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_MAX_LENGTH,
-                        "early_stopping": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_EARLY_STOPPING,
-                        "num_beams": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_NUM_BEAMS,
-                        "temperature": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_TEMPERATURE,
-                        "top_k": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_TOP_K,
-                        "top_p": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_TOP_P
-                 },
+                 max_length: int = MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_MAX_LENGTH,
+                 early_stopping: bool = MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_EARLY_STOPPING,
+                 num_beams: int = MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_NUM_BEAMS,
                  encoder_tokenizer: CustomBartTokenizer = None,
                  decoder_tokenizer: CustomBartTokenizer = None,
+                 encoder_add_special_tokens: bool = MBART_ENCODER_ADD_SPECIAL_TOKENS,
                  encoder_max_length: int = MBART_ENCODER_MAX_LENGTH,
                  encoder_return_tensors: str = MBART_ENCODER_RETURN_TENSORS,
-                 encoder_padding: Union[bool, str] = MBART_ENCODER_PADDING
+                 encoder_padding: Union[bool, str] = MBART_ENCODER_PADDING,
+                 bert_lang: str = "en",
+                 inference: bool = False
                 ) -> None:
         '''
             Initial definition of the Code Mixed Model using HuggingFace trainer.
@@ -86,9 +85,12 @@ class CodeMixedModelHGTrainer:
                 - generate_config: dict, the config for the generation of the model
                 - encoder_tokenizer: CustomBartTokenizer, the tokenizer for the encoder
                 - decoder_tokenizer: CustomBartTokenizer, the tokenizer for the decoder
+                - encoder_add_special_tokens: bool, whether to add special tokens to the encoder or not
                 - encoder_max_length: int, the maximum length of the encoder sequence
                 - encoder_return_tensors: str, the return tensors for the encoder
                 - encoder_padding: Union[bool, str], the padding for the encoder
+                - bert_lang: str, the language for the bert model
+                - inference: bool, inference mode or not
         '''
         super().__init__()
         self.train_dataset = train_dataset
@@ -99,6 +101,7 @@ class CodeMixedModelHGTrainer:
         dt_now = datetime.now().strftime("%Y%m%d-%H%M%S")
         self.save_path_dir = save_path_dir + "_" + dt_now
         self.epochs=epochs
+        self.device = device
         self.verbose = verbose
         self.verbose_step = verbose_step
         self.freeze = freeze
@@ -114,13 +117,20 @@ class CodeMixedModelHGTrainer:
         self.do_predict = do_predict
         self.evalualtion_strategy = evaluation_strategy
         self.log_path = log_path + "_" + dt_now if log_path is not None else None
-        self.generate_config = generate_config
+        self.max_length = max_length
+        self.early_stopping = early_stopping
+        self.num_beams = num_beams
         self.encoder_tokenizer = encoder_tokenizer
         self.decoder_tokenizer = decoder_tokenizer
+        self.encoder_add_special_tokens = encoder_add_special_tokens
         self.encoder_max_length = encoder_max_length
         self.encoder_return_tensors = encoder_return_tensors
         self.encoder_padding = encoder_padding
-        self.bleu_metric = load_metric("bleu")
+        self.bert_lang = bert_lang
+        self.inference = inference
+        self.sacrebleu_score_metric = load_metric("sacrebleu")
+        self.chrf_score_metric = load_metric("chrf")
+        self.bertscore_metric = load_metric("bertscore")
         self._configure()
         
     def _get_model(self,
@@ -195,13 +205,6 @@ class CodeMixedModelHGTrainer:
         self.optimizer = optimizer
         self.scheduler = scheduler
     
-    def _configure_generate_config(self) -> None:
-        '''
-            This function configures the generate config.
-        '''
-        if self.verbose: print("\nConfiguring generate config...")
-        self.generate_config = GenerationConfig(**self.generate_config)
-    
     def _get_eval_data_loader(self, eval_dataset: Dataset) -> DataLoader:
         '''
             This function returns the eval data loader
@@ -230,51 +233,21 @@ class CodeMixedModelHGTrainer:
             model = self.model
         return model.generate(
             input_ids=input_ids,
-            generation_config=self.generate_config
+            max_length=self.max_length,
+            num_beams=self.num_beams,
+            early_stopping=self.early_stopping
         )
-    
-    def _compute_bleu(self, true_ids: torch.LongTensor, logits: torch.LongTensor) -> float:
-        '''
-            This function computes the BLEU score.
-            Input params:
-                true_ids: torch.LongTensor, the true ids
-                logits: torch.LongTensor, the logits form the model
-            Returns: float, the BLEU score
-        '''
-        y = true_ids.tolist()
-        y_hat = torch.argmax(logits, dim=-1)
-        y_hat = y_hat.tolist()
-        assert len(y) == len(y_hat), "Length of true and predicted sequences not equal..."
-        references, predictions = [], []
-        for i in range(len(y)):
-            if -100 in y[i]:
-                y_cleaned = y[i][: y[i].index(-100)]
-            else:
-                y_cleaned = y[i]
-            if self.decoder_tokenizer.eos_token_id in y_hat[i]:
-                y_hat_cleaned = y_hat[i][: y_hat[i].index(self.decoder_tokenizer.eos_token_id)+1]
-            else:
-                y_hat_cleaned = y_hat[i]
-            ref = self.decoder_tokenizer.decode(y_cleaned, skip_special_tokens=True).split()
-            references.append([ref])
-            pred = self.decoder_tokenizer.decode(y_hat_cleaned, skip_special_tokens=True).split()
-            if pred is None or len(pred) == 0:
-                pred = [""]
-            predictions.append(pred)
-            break
-        return self.bleu_metric.compute(
-            predictions=predictions,
-            references=references
-        )["bleu"]
     
     def _configure_training_arguments(self) -> TrainingArguments:
         '''
             This function configures the training arguments
         '''
         if self.verbose: print("\nConfiguring training arguments...")
-        os.makedirs(self.save_path_dir, exist_ok=True)
-        if self.log_path is not None:
-            os.makedirs(self.log_path, exist_ok=True)
+        if not self.inference:
+            os.makedirs(self.save_path_dir, exist_ok=True)
+        if not self.inference:
+            if self.log_path is not None:
+                os.makedirs(self.log_path, exist_ok=True)
         args = TrainingArguments(
             output_dir=self.save_path_dir,
             do_train=self.do_train,
@@ -282,7 +255,9 @@ class CodeMixedModelHGTrainer:
             do_predict=self.do_predict,
             evaluation_strategy=self.evalualtion_strategy,
             num_train_epochs=self.epochs,
-            logging_dir=self.log_path
+            logging_dir=self.log_path,
+            eval_steps=100,
+            logging_steps=100
         )
         args.set_dataloader(train_batch_size=self.train_batch_size, eval_batch_size=self.validation_batch_size)
         args.set_testing(batch_size=self.test_batch_size)
@@ -312,7 +287,39 @@ class CodeMixedModelHGTrainer:
         self._configure_optimizers()
         self._configure_collator()
         self._configure_trainer()
-        self._configure_generate_config()
+
+    def _compute_metrics(self, logits: torch.LongTensor, generations: torch.LongTensor, labels: torch.LongTensor) -> dict:
+        '''
+            This function computes the metrics
+            Input params:
+                logits: torch.LongTensor, the logits (computed by the model, by label forcing method)
+                generations: torch.LongTensor, the generations (generated the model using the `self.generate_config`)
+                labels: torch.LongTensor, the true labels
+            Returns: dict, the metrics
+        '''
+        logits = torch.argmax(logits, dim=-1).tolist()
+        logits = self.decoder_tokenizer.batch_decode(logits, skip_special_tokens=True)
+        labels[labels == -100] = self.decoder_tokenizer.eos_token_id
+        labels = self.decoder_tokenizer.batch_decode(labels, skip_special_tokens=True)
+        generations = self.decoder_tokenizer.batch_decode(generations, skip_special_tokens=True)
+        assert len(generations) == len(labels) == len(logits), "generations, labels and logits must have the same length"
+        labels_list = [[label] for label in labels]
+        sacrebleu_score = self.sacrebleu_score_metric.compute(predictions=logits, references=labels_list)
+        chrf_score = self.chrf_score_metric.compute(predictions=logits, references=labels_list)
+        bert_score = self.bertscore_metric.compute(predictions=generations, references=labels, lang=self.bert_lang)
+        return {
+            "sacrebleu_score": {
+                "sacrebleu": sacrebleu_score["score"]
+            },
+            "chrf_score": {
+                "chrf": chrf_score["score"]
+            },
+            "bert_score": {
+                "precision": np.mean(np.array(bert_score["precision"])),
+                "recall": np.mean(np.array(bert_score["recall"])),
+                "f1": np.mean(np.array(bert_score["f1"]))
+            }
+        }
 
     def _train(self) -> None:
         '''
@@ -343,27 +350,41 @@ class CodeMixedModelHGTrainer:
         metrics = self.trainer.evaluate()
         metrics = {}
         metrics["validation_samples"] = len(eval_dataset)
-        bleu_score = 0
+        sacrebleu_score, chrf_score, precision, recall, f1 = 0, 0, 0, 0, 0
+        self.model.to(self.device)
         self.model.eval()
-        for _, batch in enumerate(tqdm(self._get_eval_data_loader(eval_dataset=eval_dataset), desc="Evaluating bleu score")):
+        for _, batch in enumerate(tqdm(self._get_eval_data_loader(eval_dataset=eval_dataset), desc="Evaluting validation data")):
             with torch.no_grad():
                 out = self.model(
-                    input_ids=batch["input_ids"],
-                    attention_mask=batch["attention_mask"],
-                    decoder_input_ids=batch["decoder_input_ids"],
-                    decoder_attention_mask=batch["decoder_attention_mask"],
-                    labels=batch["labels"]
+                    input_ids=batch["input_ids"].to(self.device),
+                    attention_mask=batch["attention_mask"].to(self.device),
+                    labels=batch["labels"].to(self.device)
                 )
                 logits = out.logits
-                bleu_score += self._compute_bleu(true_ids=batch["decoder_input_ids"], logits=logits)
-        bleu_score /= len(self._get_eval_data_loader(eval_dataset=eval_dataset))
-        metrics["bleu"] = bleu_score
+            generations = self.model.generate(batch["input_ids"].to(self.device), max_length=self.max_length, num_beams=self.num_beams, early_stopping=self.early_stopping)
+            labels = copy.deepcopy(batch["labels"])
+            scores = self._compute_metrics(logits=logits, generations=generations, labels=labels)
+            sacrebleu_score += scores["sacrebleu_score"]["sacrebleu"]
+            chrf_score += scores["chrf_score"]["chrf"]
+            precision += scores["bert_score"]["precision"]
+            recall += scores["bert_score"]["recall"]
+            f1 += scores["bert_score"]["f1"]
+        sacrebleu_score /= len(self._get_eval_data_loader(eval_dataset=eval_dataset))
+        chrf_score /= len(self._get_eval_data_loader(eval_dataset=eval_dataset))
+        precision /= len(self._get_eval_data_loader(eval_dataset=eval_dataset))
+        recall /= len(self._get_eval_data_loader(eval_dataset=eval_dataset))
+        f1 /= len(self._get_eval_data_loader(eval_dataset=eval_dataset))
+        metrics["sacrebleu_score"] = sacrebleu_score
+        metrics["chrf_score"] = chrf_score
+        metrics["bert_score_precision"] = precision
+        metrics["bert_score_recall"] = recall
+        metrics["bert_score_f1"] = f1
         self.trainer.log_metrics("validation", metrics)
         self.trainer.save_metrics("validation", metrics)
 
     def _predict(self, test_dataset: Dataset = None, model: BartForConditionalGeneration = None) -> None:
         '''
-            This function predicts the model
+            This function predicts on test data
             Input params:
                 test_dataset: Dataset, the test dataset
                 model: BartForConditionalGeneration, the model to be used for inference
@@ -372,22 +393,32 @@ class CodeMixedModelHGTrainer:
             test_dataset = self.test_dataset
         if model is None:
             model = self.model
-        bleu_score = 0
+        sacrebleu_score, chrf_score, precision, recall, f1 = 0, 0, 0, 0, 0
+        model.to(self.device)
         model.eval()
-        for _, batch in enumerate(tqdm(self._get_test_data_loader(test_dataset=test_dataset), desc="Predicting strings")):
+        for _, batch in enumerate(tqdm(self._get_test_data_loader(test_dataset=test_dataset), desc="Evaluating test data")):
             with torch.no_grad():
                 out = model(
-                    input_ids=batch["input_ids"],
-                    attention_mask=batch["attention_mask"],
-                    decoder_input_ids=batch["decoder_input_ids"],
-                    decoder_attention_mask=batch["decoder_attention_mask"],
-                    labels=batch["labels"]
+                    input_ids=batch["input_ids"].to(self.device),
+                    attention_mask=batch["attention_mask"].to(self.device),
+                    labels=batch["labels"].to(self.device)
                 )
                 logits = out.logits
-                bleu_score += self._compute_bleu(true_ids=batch["decoder_input_ids"], logits=logits)
-        bleu_score /= len(self._get_test_data_loader(test_dataset=test_dataset))
-        print("BLEU Score on the test data: ", bleu_score)
-            
+            generations = model.generate(batch["input_ids"].to(self.device), max_length=self.max_length, num_beams=self.num_beams, early_stopping=self.early_stopping)
+            labels = copy.deepcopy(batch["labels"])
+            scores = self._compute_metrics(logits=logits, generations=generations, labels=labels)
+            sacrebleu_score += scores["sacrebleu_score"]["sacrebleu"]
+            chrf_score += scores["chrf_score"]["chrf"]
+            precision += scores["bert_score"]["precision"]
+            recall += scores["bert_score"]["recall"]
+            f1 += scores["bert_score"]["f1"]
+        sacrebleu_score /= len(self._get_test_data_loader(test_dataset=test_dataset))
+        chrf_score /= len(self._get_test_data_loader(test_dataset=test_dataset))
+        precision /= len(self._get_test_data_loader(test_dataset=test_dataset))
+        recall /= len(self._get_test_data_loader(test_dataset=test_dataset))
+        f1 /= len(self._get_test_data_loader(test_dataset=test_dataset))
+        print(f"SacreBLEU score: {sacrebleu_score}\nCHRF score: {chrf_score}\nBERT score - Precision: {precision}\nBERT score - Recall: {recall}\nBERT score - F1: {f1}")
+   
     def _fit(self) -> tuple:
         '''
             This function fits the model
@@ -395,7 +426,7 @@ class CodeMixedModelHGTrainer:
             Returns: tuple of the model and the best model
         '''
         if self.training_args.do_train:
-            if self.verbose: print("\nTraining the model...")
+            if self.verbose: print("Training the model...")
             self._train()
         else:
             print("Skipping training as `do_train` is False...")
@@ -412,14 +443,23 @@ class CodeMixedModelHGTrainer:
         else:
             print("Skipping evaluation as `do_eval` is False...")
     
-    def fit(self) -> tuple:
+    def fit(self, skip_training: bool = False, skip_validation: bool = False) -> tuple:
         '''
             This function fits the model
-            Input params: None
+            Input params:
+                skip_training: bool, whether to skip training or not
+                skip_validation: bool, whether to skip validation or not
             Returns: tuple of the model and the best model
         '''
-        self._fit()
-        self._validate()
+        if not skip_training:
+            self._fit()
+        if not skip_validation:
+            if skip_training:
+                self.model = BartForConditionalGeneration(
+                        pretrained=True,
+                        pretrained_path=MBART_MODEL_CONDITIONAL_GENERATION_RESUME_FROM_CHECKPOINT
+                    ).model
+            self._validate()
 
     def predict(self, model_path: str = None) -> tuple:
         '''
@@ -440,6 +480,49 @@ class CodeMixedModelHGTrainer:
             self._predict(model=model)
         else:
             print("Skipping prediction as `do_predict` is False...")
+    
+    def infer(self, model_path: str = None, src: Union[str, Dataset] = "Hi! tum kaisi ho?", need_print: bool = True) -> Union[str, list]:
+        '''
+            This function infers the model
+            Input params:
+                model_path: str, path to the model to be loaded
+                src: str, the source language
+            Returns: translated sentence
+        '''
+        if model_path is not None:
+            if self.verbose and need_print: print("Loading the model...")
+            model = BartForConditionalGeneration(
+                    pretrained=True,
+                    pretrained_path=model_path).model
+        else:
+            model = self.model
+        if self.verbose and need_print: print("\nGenerating translation for the source string...\n")
+        model.to(self.device)
+        model.eval()
+        if isinstance(src, str):
+            src_tokenized = self.encoder_tokenizer(
+                src,
+                add_special_tokens=self.encoder_add_special_tokens, 
+                max_length=self.encoder_max_length, 
+                return_tensors=self.encoder_return_tensors, 
+                padding=self.encoder_padding, 
+                verbose=False
+            )
+            translation_ids = model.generate(src_tokenized["input_ids"], max_length=50, num_beams=5, early_stopping=True)
+            if translation_ids.shape[1] > 1:  # More than just EOS token
+                translation = self.decoder_tokenizer.decode(translation_ids[0], skip_special_tokens=True)
+            else:
+                translation = ""
+            if self.verbose and need_print: print("Source string: ", src)
+            if self.verbose and need_print: print("Translated string: ", translation_ids)
+            return translation
+        elif isinstance(src, Dataset):
+            res = []
+            for _, batch in enumerate(tqdm(self._get_test_data_loader(test_dataset=src), desc="Getting translation for the data")):
+                generation_ids = model.generate(batch["input_ids"].to(self.device), max_length=self.max_length, num_beams=self.num_beams, early_stopping=self.early_stopping)
+                generations = self.decoder_tokenizer.batch_decode(generation_ids, skip_special_tokens=True)
+                res.extend(generations)
+            return res
 
 
 class CodeMixedModel:
@@ -461,13 +544,9 @@ class CodeMixedModel:
                  saved_model_path: str = MBART_MODEL_CONDITIONAL_GENERATION_LOAD_PATH,
                  model_name: str = MBART_MODEL_CONDITIONAL_GENERATION_TYPE,
                  generate_config: dict = {
-                        "min_length": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_MIN_LENGTH,
                         "max_length": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_MAX_LENGTH,
                         "early_stopping": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_EARLY_STOPPING,
-                        "num_beams": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_NUM_BEAMS,
-                        "temperature": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_TEMPERATURE,
-                        "top_k": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_TOP_K,
-                        "top_p": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_TOP_P
+                        "num_beams": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_NUM_BEAMS
                  },
                  encoder_add_special_tokens: bool = MBART_ENCODER_ADD_SPECIAL_TOKENS,
                  encoder_max_length: int = MBART_ENCODER_MAX_LENGTH,
@@ -532,6 +611,9 @@ class CodeMixedModel:
         self.saved_model_path = saved_model_path
         self.model_name = model_name
         self.generate_config = generate_config
+        self.max_length = generate_config["max_length"]
+        self.early_stopping = generate_config["early_stopping"]
+        self.num_beams = generate_config["num_beams"]
         self.encoder_add_special_tokens = encoder_add_special_tokens
         self.encoder_max_length = encoder_max_length
         self.encoder_return_tensors = encoder_return_tensors
@@ -802,7 +884,9 @@ class CodeMixedModel:
             model = self.test_model
         return model.generate(
             input_ids=input_ids,
-            generation_config=self.generate_config
+            max_length=self.max_length,
+            num_beams=self.num_beams,
+            early_stopping=self.early_stopping
         )
 
     def _test(self) -> tuple:

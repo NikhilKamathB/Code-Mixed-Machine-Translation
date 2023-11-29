@@ -1,9 +1,12 @@
+import numpy as np
 import pandas as pd
 from typing import Union
 from google.cloud import storage
+from datasets import load_metric
 from collections import defaultdict
 from transformers import BartTokenizer
 from src.machine_translation import *
+from src.data.tokenizer import CustomBartTokenizer
 from src.machine_translation.data import CodeMixedDataLoader, CodeMixedTokenizedDataset
 
 
@@ -81,12 +84,18 @@ def get_tokenized_dataset_models(
             "overfit": overfit,
             "overfit_size": overfit_size,
         }
-        config["data"] = train_df
-        train_dataset = CodeMixedTokenizedDataset(**config)
-        config["data"] = validation_df
-        validation_dataset = CodeMixedTokenizedDataset(**config)
-        config["data"] = test_df
-        test_dataset = CodeMixedTokenizedDataset(**config)
+        train_dataset = None
+        if train_df is not None:
+            config["data"] = train_df
+            train_dataset = CodeMixedTokenizedDataset(**config)
+        validation_dataset = None
+        if validation_df is not None:
+            config["data"] = validation_df
+            validation_dataset = CodeMixedTokenizedDataset(**config)
+        test_dataset = None
+        if test_df is not None:
+            config["data"] = test_df
+            test_dataset = CodeMixedTokenizedDataset(**config)
         dataset[task] = {
             "train": train_dataset,
             "validation": validation_dataset,
@@ -223,3 +232,71 @@ def upload_blob(bucket_name: str, source_file_name: str, destination_blob_name: 
     except Exception as e:
         print(f"An Error occured while uploading file {source_file_name} to {destination_blob_name} with `e` as: {e}.")
         return False
+    
+def calculate_sacrebleu_score(group: pd.DataFrame, src_tgt_lang: list = PROCESSED_COLUMN_NAMES) -> float:
+    '''
+        This function is used to calculate the sacrebleu score, given a dataframe.
+        Input parameters:
+            - group: A pandas dataframe containing the data.
+            - src_tgt_lang: A list containing the source and target language.
+        Returns: sacrebleu score.
+    '''
+    assert len(src_tgt_lang) == 2, "The length of `src_tgt_lang` must be 2 and it must be in the following format `[soruce_lang, target_lang]`."
+    _, tgt_lang = src_tgt_lang
+    assert "translations" in group.columns, "Column `translations` not found in the dataframe."
+    metric = load_metric("sacrebleu")
+    references = group[tgt_lang].tolist()
+    references_list = [[reference] for reference in references]
+    translations = group["translations"].tolist()
+    sacrebleu_score = metric.compute(predictions=translations, references=references_list)
+    return sacrebleu_score["score"]
+
+def calculate_chrf_score(group: pd.DataFrame, src_tgt_lang: list = PROCESSED_COLUMN_NAMES) -> float:
+    '''
+        This function is used to calculate the chrf score, given a dataframe.
+        Input parameters:
+            - group: A pandas dataframe containing the data.
+            - src_tgt_lang: A list containing the source and target language.
+        Returns: chrf score.
+    '''
+    assert len(src_tgt_lang) == 2, "The length of `src_tgt_lang` must be 2 and it must be in the following format `[soruce_lang, target_lang]`."
+    _, tgt_lang = src_tgt_lang
+    assert "translations" in group.columns, "Column `translations` not found in the dataframe."
+    metric = load_metric("chrf")
+    references = group[tgt_lang].tolist()
+    references_list = [[reference] for reference in references]
+    translations = group["translations"].tolist()
+    chrf_score = metric.compute(predictions=translations, references=references_list)
+    return chrf_score["score"]
+
+def calculate_bert_score(group: pd.DataFrame, src_tgt_lang: list = PROCESSED_COLUMN_NAMES, bert_lang: str = "en") -> tuple:
+    '''
+        This function is used to calculate the bert score, given a dataframe.
+        Input parameters:
+            - group: A pandas dataframe containing the data.
+            - src_tgt_lang: A list containing the source and target language.
+            - bert_lang: A string containing the language for bert score.
+        Returns: A tuple containing the precision, recall and f1 score.
+    '''
+    assert len(src_tgt_lang) == 2, "The length of `src_tgt_lang` must be 2 and it must be in the following format `[soruce_lang, target_lang]`."
+    _, tgt_lang = src_tgt_lang
+    assert "translations" in group.columns, "Column `translations` not found in the dataframe."
+    metric = load_metric("bertscore")
+    references = group[tgt_lang].tolist()
+    references_list = [[reference] for reference in references]
+    translations = group["translations"].tolist()
+    bert_score = metric.compute(predictions=translations, references=references_list, lang=bert_lang)
+    precision = np.mean(np.array(bert_score["precision"]))
+    recall = np.mean(np.array(bert_score["recall"]))
+    f1 = np.mean(np.array(bert_score["f1"]))
+    return (precision, recall, f1)
+
+def calculate_tokens(sentence: str, tokenizer: CustomBartTokenizer) -> int:
+    '''
+        This function is used to calculate the number of tokens in a sentence.
+        Input parameters:
+            - sentence: A string containing the sentence.
+            - tokenizer: A BART tokenizer object.
+        Returns: An integer containing the number of tokens in the sentence.
+    '''
+    return len(tokenizer.tokenize(sentence))

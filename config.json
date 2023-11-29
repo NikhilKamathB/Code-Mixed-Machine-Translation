@@ -109,6 +109,7 @@
                 "truncation": true,
                 "verbose": true
             },
+            "translation_mode": "hi_en__en",
             "translations": {
                 "hi_en__en": {
                     "src": "hi_en",
@@ -123,7 +124,7 @@
             "bart_for_conditional_generation": {
                 "type": "BartForConditionalGeneration",
                 "device": "cpu",
-                "epochs": 0.05,
+                "epochs": 8.0,
                 "save_model": true,
                 "save_to_gcp": true,
                 "save_path": "../runs/models/bart_for_conditional_generation",
@@ -136,7 +137,7 @@
                 "verbose_step": 100,
                 "freeze_model": false,
                 "k_random": 7,
-                "resume_from_checkpoint": "../runs/models/bart_for_conditional_generation/checkpoint-500",
+                "resume_from_checkpoint": "../runs/models/bart_for_conditional_generation_20231128-012359/checkpoint-43600",
                 "do_train": true,
                 "do_eval": true,
                 "do_predict": true,
@@ -152,30 +153,26 @@
                 },
                 "optimizer": {
                     "type": "AdamW",
-                    "lr": 0.001,
+                    "lr": 5e-5,
                     "betas": [
                         0.9,
                         0.999
                     ],
-                    "eps": 1e-06,
+                    "eps": 1e-8,
                     "weight_decay": 0,
                     "correct_bias": true,
                     "no_depreciation_warning": false
                 },
                 "scheduler": {
                     "type": "get_linear_schedule_with_warmup",
-                    "num_warmup_steps": 1000,
-                    "num_training_steps": 50,
+                    "num_warmup_steps": 250,
+                    "num_training_steps": 43616,
                     "last_epoch": -1
                 },
                 "generate": {
-                    "min_length": 0,
-                    "max_length": 20,
-                    "early_stopping": false,
-                    "num_beams": 4,
-                    "temperature": 1.0,
-                    "top_k": 50,
-                    "top_p": 1.0
+                    "max_length": 50,
+                    "early_stopping": true,
+                    "num_beams": 5
                 }
             }
         }

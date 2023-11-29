@@ -167,8 +167,8 @@ class CodeMixedTokenizedDataset(Dataset):
         instance = {
             "input_ids": encoder_tokenized_text["input_ids"].flatten(),
             "attention_mask": encoder_tokenized_text["attention_mask"].flatten(),
-            "decoder_input_ids": decoder_tokenized_text["input_ids"].flatten(),
-            "decoder_attention_mask": decoder_tokenized_text["attention_mask"].flatten(),
+            # "decoder_input_ids": decoder_tokenized_text["input_ids"].flatten(),
+            # "decoder_attention_mask": decoder_tokenized_text["attention_mask"].flatten(),
             "labels": labels,
         }
         return instance

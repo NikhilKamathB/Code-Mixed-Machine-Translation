@@ -7,6 +7,8 @@ The objective of this project is to enhancing machine translation for code-mixed
 Machine translation is a rapidly evolving field in Natural Language Processing (NLP) with applications ranging from improving cross-lingual communication to assisting global business operations. In this project, we address the complex challenge of translating code-mixed language text. Our aim is to develop a robust system that can accurately translate mixed language text (Spanglish and Hinglish) into English, recognizing the nuances of language switching within a sentence. With bilingualism being a significant aspect of many team members’ lives, this project has a personal and practical relevance that extends beyond the research realm. Moreover, this work serves as a proof of concept, potentially paving the way for enhanced mixed language translation in various applications.
 
 ## Folder Structure.
+To view the output of oour model, please refer `./nbs/Machine Translation.ipynb`
+
 ```
 Code-Mixed-Machine-Translation Repo.
 

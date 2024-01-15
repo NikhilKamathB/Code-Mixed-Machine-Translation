@@ -1,10 +1,12 @@
+import random
 import pandas as pd
 from tqdm import tqdm
 from typing import Union
-from torch.utils.data import Dataset
 from transformers import BartTokenizer
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
 from src.machine_translation import *
+from src.data.tokenizer import CustomBartTokenizer
+from src.machine_translation.collator import DataCollatorForLanguageMasking
 
     
 class CodeMixedDataset(Dataset):
@@ -67,14 +69,14 @@ class CodeMixedTokenizedDataset(Dataset):
                  denoising_stage: bool = False,
                  src_lang: str = "hi_en",
                  tgt_lang: str = "en",
-                 encoder_tokenizer: BartTokenizer = None,
+                 encoder_tokenizer: Union[BartTokenizer, CustomBartTokenizer] = None,
                  encoder_add_special_tokens: bool = True,
                  encoder_max_length: int = None,
                  encoder_return_tensors: str = "pt",
                  encoder_padding: Union[bool, str] = True,
                  encoder_truncation: bool = True,
                  encoder_verbose: bool = True,
-                 decoder_tokenizer: BartTokenizer = None,
+                 decoder_tokenizer: Union[BartTokenizer, CustomBartTokenizer] = None,
                  decoder_add_special_tokens: bool = True,
                  decoder_max_length: int = None,
                  decoder_return_tensors: str = "pt",
@@ -90,14 +92,14 @@ class CodeMixedTokenizedDataset(Dataset):
                 denoising_stage: bool, if True, the dataset will be used for denoising
                 src_lang: str, source language
                 tgt_lang: str, target language
-                encoder_tokenizer: BartTokenizer, tokenizer for the source dataset
+                encoder_tokenizer: Union[BartTokenizer, CustomBartTokenizer], tokenizer for the source dataset
                 encoder_add_special_tokens: bool, if True, the special tokens will be added
                 encoder_max_length: int, maximum length of the sequence
                 encoder_return_tensors: str, return tensors for the dataset
                 encoder_padding: bool, if True, the dataset will be padded
                 encoder_truncation: bool, if True, the dataset will be truncated
                 encoder_verbose: bool, if True, the dataset will be printed
-                decoder_tokenizer: BartTokenizer, tokenizer for the target dataset
+                decoder_tokenizer: Union[BartTokenizer, CustomBartTokenizer], tokenizer for the target dataset
                 decoder_add_special_tokens: bool, if True, the special tokens will be added
                 decoder_max_length: int, maximum length of the sequence
                 decoder_return_tensors: str, return tensors for the dataset
@@ -167,8 +169,6 @@ class CodeMixedTokenizedDataset(Dataset):
         instance = {
             "input_ids": encoder_tokenized_text["input_ids"].flatten(),
             "attention_mask": encoder_tokenized_text["attention_mask"].flatten(),
-            # "decoder_input_ids": decoder_tokenized_text["input_ids"].flatten(),
-            # "decoder_attention_mask": decoder_tokenized_text["attention_mask"].flatten(),
             "labels": labels,
         }
         return instance
@@ -204,14 +204,14 @@ class CodeMixedDataLoader(DataLoader):
                  train_shuffle: bool = True,
                  validation_shuffle: bool = True,
                  test_shuffle: bool = True,
-                 encoder_tokenizer: BartTokenizer = None,
+                 encoder_tokenizer: Union[BartTokenizer, CustomBartTokenizer] = None,
                  encoder_add_special_tokens: bool = True,
                  encoder_max_length: int = None,
                  encoder_return_tensors: str = "pt",
                  encoder_padding: Union[bool, str] = True,
                  encoder_truncation: bool = True,
                  encoder_verbose: bool = True,
-                 decoder_tokenizer: BartTokenizer = None,
+                 decoder_tokenizer: Union[BartTokenizer, CustomBartTokenizer] = None,
                  decoder_add_special_tokens: bool = True,
                  decoder_max_length: int = None,
                  decoder_return_tensors: str = "pt",
@@ -221,7 +221,7 @@ class CodeMixedDataLoader(DataLoader):
                  denoising_stage: bool = False,
                  src_lang: str = "hi_en",
                  tgt_lang: str = "en",
-                 overfit: bool = False, 
+                 overfit: bool = False,
                  overfit_batch_size: int = 32,
                  num_workers: int = None,
                  pin_memory: bool = False,
@@ -238,14 +238,14 @@ class CodeMixedDataLoader(DataLoader):
                 train_shuffle: bool, if True, the training data will be shuffled
                 validation_shuffle: bool, if True, the validation data will be shuffled
                 test_shuffle: bool, if True, the test data will be shuffled
-                encoder_tokenizer: BartTokenizer, tokenizer for the source dataset
+                encoder_tokenizer: Union[BartTokenizer, CustomBartTokenizer], tokenizer for the source dataset
                 encoder_add_special_tokens: bool, if True, the special tokens will be added
                 encoder_max_length: int, maximum length of the sequence
                 encoder_return_tensors: str, return tensors for the dataset
                 encoder_padding: bool, if True, the dataset will be padded
                 encoder_truncation: bool, if True, the dataset will be truncated
                 encoder_verbose: bool, if True, the dataset will be printed
-                decoder_tokenizer: BartTokenizer, tokenizer for the target dataset
+                decoder_tokenizer: Union[BartTokenizer, CustomBartTokenizer], tokenizer for the target dataset
                 decoder_add_special_tokens: bool, if True, the special tokens will be added
                 decoder_max_length: int, maximum length of the sequence
                 decoder_return_tensors: str, return tensors for the dataset
@@ -301,6 +301,10 @@ class CodeMixedDataLoader(DataLoader):
         self.num_workers = os.cpu_count() // 2 if num_workers is None else num_workers
         if self.denoising_stage:
             self.tgt_lang = self.src_lang
+            self.mlm_data_collator = DataCollatorForLanguageMasking(tokenizer=self.encoder_tokenizer)
+        #     self.plm_data_collator = DataCollatorForPermutationLanguageModeling(tokenizer=self.encoder_tokenizer) # max-length in the config has to be an even number if you are using this collator
+        #     # self.data_collators = [self.mlm_data_collator, self.plm_data_collator]
+            self.data_collators = [self.mlm_data_collator]
         
     def custom_collate_fn(self, batch: list) -> dict:
         '''
@@ -333,6 +337,9 @@ class CodeMixedDataLoader(DataLoader):
         batch["src_attention_mask"] = encoder_tokenized_text["attention_mask"]
         batch["tgt_tokenized"] = decoder_tokenized_text["input_ids"]
         batch["tgt_attention_mask"] = decoder_tokenized_text["attention_mask"]
+        if self.denoising_stage:
+            data_collator = random.choice(self.data_collators)
+            batch = data_collator(batch)
         return batch
 
     def get_data_loaders(self) -> tuple:
@@ -409,6 +416,9 @@ class CodeMixedDataLoader(DataLoader):
         batch_tgt = batch["tgt"]
         batch_tgt_tokenized = batch["tgt_tokenized"]
         batch_tgt_attention_mask = batch["tgt_attention_mask"]
+        if self.denoising_stage and "denoising_src_tokenized" in batch.keys():
+            batch_denoising_src_tokenized = batch["denoising_src_tokenized"]
+            batch_denoising_labels = batch["denoising_labels"]
         print("Batch source language shape: ", batch_src_tokenized.shape)
         print("Batch source language: ", batch_src)
         print("Batch source tokens: ", batch_src_tokenized)
@@ -417,9 +427,15 @@ class CodeMixedDataLoader(DataLoader):
         print("Batch target language: ", batch_tgt)
         print("Batch target tokens: ", batch_tgt_tokenized)
         print("Batch target attention mask: ", batch_tgt_attention_mask)
+        if self.denoising_stage:
+            print("Batch denoising source language shape: ", batch_denoising_src_tokenized.shape)
+            print("Batch denoising source tokens: ", batch_denoising_src_tokenized)
+            batch_denoising_src_decoded = self.encoder_tokenizer.batch_decode(batch_denoising_src_tokenized)
+            print("Batch denoising source decoded: ", batch_denoising_src_decoded)
+            print("Batch denoising labels: ", batch_denoising_labels)
         print("Validating train laoder...")
         for batch in tqdm(train_data_loader):
-            _, _, _, _, _, _ = batch.values()
+            _ = batch.values()
         print("Validation of train loader successful.")
         print('#'*100)
         print("Val Dataloader")
@@ -427,7 +443,7 @@ class CodeMixedDataLoader(DataLoader):
         print("Number of batches: ", len(validation_data_loader))
         print("Validating validation laoder...")
         for batch in tqdm(validation_data_loader):
-            _, _, _, _, _, _ = batch.values()
+            _ = batch.values()
         print("Validation of validation loader successful.")
         print('#'*100)
         print("Test Dataloader")
@@ -435,6 +451,6 @@ class CodeMixedDataLoader(DataLoader):
         print("Number of batches: ", len(test_data_loader))
         print("Validating test laoder...")
         for batch in tqdm(test_data_loader):
-            _, _, _, _, _, _ = batch.values()
+            _ = batch.values()
         print("Validation of test loader successful.")
         print('#'*100)

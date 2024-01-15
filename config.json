@@ -95,7 +95,7 @@
         "dataloader": {
             "encoder": {
                 "add_special_tokens": true,
-                "max_length": 25,
+                "max_length": 30,
                 "return_tensors": "pt",
                 "padding": "max_length",
                 "truncation": true,
@@ -103,7 +103,7 @@
             },
             "decoder": {
                 "add_special_tokens": true,
-                "max_length": 25,
+                "max_length": 30,
                 "return_tensors": "pt",
                 "padding": "max_length",
                 "truncation": true,
@@ -177,7 +177,7 @@
             }
         }
     },
-    "gpt4_turbo":{
+    "gpt4_turbo": {
         "response_save_path": "../runs/openapi_response/api_response.txt",
         "prediction_df_save_path": "../runs/openapi_response/predictions.csv"
     }

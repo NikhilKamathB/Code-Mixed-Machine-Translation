@@ -1,4 +1,5 @@
 import pandas as pd
+from typing import Tuple
 from datasets import Dataset
 from datasets import load_dataset as hg_load_dataset
 from src.data import *
@@ -181,13 +182,25 @@ def remove_data_leaks(df_1: pd.DataFrame, df_2:pd.DataFrame, subset_cols: list =
     cleaned_df = merged_df[merged_df['_merge'] == 'left_only'].drop(columns=['_merge'])
     return cleaned_df
 
-def get_dataset(remove: bool = True) -> tuple:
+def get_dataset(remove: bool = True, retrieve: bool= True, train_file: str = PROCESSED_TRAIN_CSV, val_file: str = PROCESSED_VALIDATION_CSV, test_csv: str = PROCESSED_TEST_CSV) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Description: Get all the datasets mentioned in config and save them. 
     Input parameters:
         - remove: If True, remove all the datasets from the processed data directory and reprocess them.
+        - retrieve: If True, retrieve the datasets from the processed data directory.
+        - train_file: Name of the train file.
+        - val_file: Name of the validation file.
+        - test_file: Name of the test file.
     Returns: A tuple containing train/validation/split pandas data frames.
     """
+    if retrieve:
+        assert os.path.exists(os.path.join(PROCESSED_DATA_BASE_DIR, train_file)), f"File {train_file} does not exist. Please set retrieve=False and rerun the script."
+        assert os.path.exists(os.path.join(PROCESSED_DATA_BASE_DIR, val_file)), f"File {val_file} does not exist. Please set retrieve=False and rerun the script."
+        assert os.path.exists(os.path.join(PROCESSED_DATA_BASE_DIR, test_csv)), f"File {test_csv} does not exist. Please set retrieve=False and rerun the script."
+        train_df = pd.read_csv(os.path.join(PROCESSED_DATA_BASE_DIR, train_file))
+        validation_df = pd.read_csv(os.path.join(PROCESSED_DATA_BASE_DIR, val_file))
+        test_df = pd.read_csv(os.path.join(PROCESSED_DATA_BASE_DIR, test_csv))
+        return (train_df, validation_df, test_df)
     data = load_dataset()
     train_df = validation_df = test_df = pd.DataFrame()
     for dataset in data.keys():

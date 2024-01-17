@@ -6,7 +6,7 @@ from transformers import BartTokenizer
 from torch.utils.data import Dataset, DataLoader
 from src.machine_translation import *
 from src.data.tokenizer import CustomBartTokenizer
-from src.machine_translation.collator import DataCollatorForLanguageMasking
+from src.machine_translation.collator import DataCollatorForLanguageMasking, DataCollatorForLanguagePermutation
 
     
 class CodeMixedDataset(Dataset):
@@ -302,9 +302,8 @@ class CodeMixedDataLoader(DataLoader):
         if self.denoising_stage:
             self.tgt_lang = self.src_lang
             self.mlm_data_collator = DataCollatorForLanguageMasking(tokenizer=self.encoder_tokenizer)
-        #     self.plm_data_collator = DataCollatorForPermutationLanguageModeling(tokenizer=self.encoder_tokenizer) # max-length in the config has to be an even number if you are using this collator
-        #     # self.data_collators = [self.mlm_data_collator, self.plm_data_collator]
-            self.data_collators = [self.mlm_data_collator]
+            self.plm_data_collator = DataCollatorForLanguagePermutation(tokenizer=self.encoder_tokenizer)
+            self.data_collators = [self.mlm_data_collator, self.plm_data_collator]
         
     def custom_collate_fn(self, batch: list) -> dict:
         '''
@@ -419,6 +418,7 @@ class CodeMixedDataLoader(DataLoader):
         if self.denoising_stage and "denoising_src_tokenized" in batch.keys():
             batch_denoising_src_tokenized = batch["denoising_src_tokenized"]
             batch_denoising_labels = batch["denoising_labels"]
+            batch_denoising_mask = batch["denoising_mask"]
         print("Batch source language shape: ", batch_src_tokenized.shape)
         print("Batch source language: ", batch_src)
         print("Batch source tokens: ", batch_src_tokenized)
@@ -433,6 +433,7 @@ class CodeMixedDataLoader(DataLoader):
             batch_denoising_src_decoded = self.encoder_tokenizer.batch_decode(batch_denoising_src_tokenized)
             print("Batch denoising source decoded: ", batch_denoising_src_decoded)
             print("Batch denoising labels: ", batch_denoising_labels)
+            print("Batch denoising mask: ", batch_denoising_mask)
         print("Validating train laoder...")
         for batch in tqdm(train_data_loader):
             _ = batch.values()

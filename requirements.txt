@@ -1,0 +1,17 @@
+tqdm==4.66.1
+nltk==3.8.1
+numpy==1.26.1
+pandas==2.1.2
+matplotlib==3.8.0
+ipykernel==6.26.0
+jupyterlab==4.0.7
+torch==2.1.0
+transformers==4.35.1
+accelerate
+datasets
+tokenizers
+huggingface-hub
+sacrebleu
+bert_score
+evaluate
+google-cloud-storage

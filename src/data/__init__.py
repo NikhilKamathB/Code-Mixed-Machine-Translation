@@ -4,7 +4,7 @@ from enum import Enum
 
 
 # Load config file
-assert os.path.isfile("../config.json"), "Config file not found! Add a config.json file in ./src folder."
+assert os.path.isfile("../config.json"), "Config file not found! Add a config.json file in ./ folder."
 with open("../config.json", "r") as f:
     __config__ = json.load(f)
 

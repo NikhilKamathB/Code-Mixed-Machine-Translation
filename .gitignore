@@ -19,6 +19,7 @@ __pycache__/
 *.tsv
 *.pth
 !*config.json
+!*requirements.txt
 
 # C extensions
 *.so

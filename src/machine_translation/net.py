@@ -17,6 +17,7 @@ from src.data import *
 from src.machine_translation import *
 from src.data.tokenizer import CustomBartTokenizer
 from src.machine_translation.models.bart_conditional import BartForConditionalGeneration
+from src.machine_translation.collator import DataCollatorForLanguageMasking, DataCollatorForLanguagePermutation
 
 
 class CodeMixedModelHGTrainer:
@@ -58,7 +59,7 @@ class CodeMixedModelHGTrainer:
                  encoder_padding: Union[bool, str] = MBART_ENCODER_PADDING,
                  bert_lang: str = "en",
                  inference: bool = False
-                ) -> None:
+                 ) -> None:
         '''
             Initial definition of the Code Mixed Model using HuggingFace trainer.
             Input params:
@@ -100,7 +101,7 @@ class CodeMixedModelHGTrainer:
         self.from_pretrained = from_pretrained
         dt_now = datetime.now().strftime("%Y%m%d-%H%M%S")
         self.save_path_dir = save_path_dir + "_" + dt_now
-        self.epochs=epochs
+        self.epochs = epochs
         self.device = device
         self.verbose = verbose
         self.verbose_step = verbose_step
@@ -132,7 +133,7 @@ class CodeMixedModelHGTrainer:
         self.chrf_score_metric = load_metric("chrf")
         self.bertscore_metric = load_metric("bertscore")
         self._configure()
-        
+
     def _get_model(self,
                    pretrained: bool = MBART_MODEL_CONDITIONAL_GENERATION_USE_PRETRAINED,
                    pretrained_path: str = MBART_MODEL_CONDITIONAL_GENERATION_FROM_PRETRAINED,
@@ -144,7 +145,8 @@ class CodeMixedModelHGTrainer:
                 pretrained_path: str, the path to the pretrained model
                 model_name: str, name of the model to be used | default: MBart | options: MBart
         '''
-        if self.verbose: print("Getting the model...")
+        if self.verbose:
+            print("Getting the model...")
         if model_name == MBART_MODEL_CONDITIONAL_GENERATION_TYPE:
             return BartForConditionalGeneration(
                 pretrained=pretrained,
@@ -152,35 +154,42 @@ class CodeMixedModelHGTrainer:
             ).model
         else:
             raise NotImplementedError(f"Model {model_name} not implemented")
-    
+
     def _freeze_weights(self) -> None:
         '''
             Freezes the weights of the model given a list of layers to be trained, if no list is provided, all the layers are frozen
         '''
-        if self.verbose: print("\nFreezing the model...")
+        if self.verbose:
+            print("\nFreezing the model...")
         for name, param in self.model.named_parameters():
             if self.trainable_layers and name in self.trainable_layers:
                 param.requires_grad = True
             else:
                 param.requires_grad = False
-    
+
     def _configure_collator(self) -> None:
         '''
             This function configures the collator
         '''
-        if self.verbose: print("\nConfiguring collator...")
+        if self.verbose:
+            print("\nConfiguring collator...")
+        self.mlm_data_collator = DataCollatorForLanguageMasking(
+            tokenizer=self.encoder_tokenizer)
+        self.plm_data_collator = DataCollatorForLanguagePermutation(
+            tokenizer=self.encoder_tokenizer)
         self.data_collator = DataCollatorWithPadding(
             tokenizer=self.encoder_tokenizer,
             padding=self.encoder_padding,
             max_length=self.encoder_max_length,
             return_tensors=self.encoder_return_tensors
         )
-    
+
     def _configure_optimizers(self) -> None:
         '''
             This function configures the optimizer and scheduler.
         '''
-        if self.verbose: print("\nConfiguring optimizer and scheduler...")
+        if self.verbose:
+            print("\nConfiguring optimizer and scheduler...")
         if MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_TYPE == "AdamW":
             optimizer = AdamW(
                 params=self.model.parameters(),
@@ -192,7 +201,8 @@ class CodeMixedModelHGTrainer:
                 no_deprecation_warning=MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_NO_DEPRICATION_WARNING
             )
         else:
-            raise NotImplementedError(f"Optimizer {MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_TYPE} not implemented.")
+            raise NotImplementedError(
+                f"Optimizer {MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_TYPE} not implemented.")
         if MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_TYPE == "get_linear_schedule_with_warmup":
             scheduler = get_linear_schedule_with_warmup(
                 optimizer=optimizer,
@@ -201,10 +211,11 @@ class CodeMixedModelHGTrainer:
                 last_epoch=MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_LAST_EPOCH
             )
         else:
-            raise NotImplementedError(f"Scheduler {MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_TYPE} not implemented.")
+            raise NotImplementedError(
+                f"Scheduler {MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_TYPE} not implemented.")
         self.optimizer = optimizer
         self.scheduler = scheduler
-    
+
     def _get_eval_data_loader(self, eval_dataset: Dataset) -> DataLoader:
         '''
             This function returns the eval data loader
@@ -212,7 +223,7 @@ class CodeMixedModelHGTrainer:
                 eval_dataset: Dataset, the eval dataset
         '''
         return self.trainer.get_eval_dataloader(eval_dataset=eval_dataset)
-    
+
     def _get_test_data_loader(self, test_dataset: Dataset) -> DataLoader:
         '''
             This function returns the test data loader
@@ -237,12 +248,13 @@ class CodeMixedModelHGTrainer:
             num_beams=self.num_beams,
             early_stopping=self.early_stopping
         )
-    
+
     def _configure_training_arguments(self) -> TrainingArguments:
         '''
             This function configures the training arguments
         '''
-        if self.verbose: print("\nConfiguring training arguments...")
+        if self.verbose:
+            print("\nConfiguring training arguments...")
         if not self.inference:
             os.makedirs(self.save_path_dir, exist_ok=True)
         if not self.inference:
@@ -259,7 +271,8 @@ class CodeMixedModelHGTrainer:
             eval_steps=100,
             logging_steps=100
         )
-        args.set_dataloader(train_batch_size=self.train_batch_size, eval_batch_size=self.validation_batch_size)
+        args.set_dataloader(train_batch_size=self.train_batch_size,
+                            eval_batch_size=self.validation_batch_size)
         args.set_testing(batch_size=self.test_batch_size)
         return args
 
@@ -267,7 +280,8 @@ class CodeMixedModelHGTrainer:
         '''
             This function configures the trainer
         '''
-        if self.verbose: print("\nConfiguring trainer...")
+        if self.verbose:
+            print("\nConfiguring trainer...")
         self.training_args = self._configure_training_arguments()
         self.trainer = Trainer(
             model=self.model,
@@ -283,7 +297,8 @@ class CodeMixedModelHGTrainer:
             This function configures the model
         '''
         self.model = self._get_model()
-        if self.freeze: self._freeze_weights()
+        if self.freeze:
+            self._freeze_weights()
         self._configure_optimizers()
         self._configure_collator()
         self._configure_trainer()
@@ -298,15 +313,22 @@ class CodeMixedModelHGTrainer:
             Returns: dict, the metrics
         '''
         logits = torch.argmax(logits, dim=-1).tolist()
-        logits = self.decoder_tokenizer.batch_decode(logits, skip_special_tokens=True)
+        logits = self.decoder_tokenizer.batch_decode(
+            logits, skip_special_tokens=True)
         labels[labels == -100] = self.decoder_tokenizer.eos_token_id
-        labels = self.decoder_tokenizer.batch_decode(labels, skip_special_tokens=True)
-        generations = self.decoder_tokenizer.batch_decode(generations, skip_special_tokens=True)
-        assert len(generations) == len(labels) == len(logits), "generations, labels and logits must have the same length"
+        labels = self.decoder_tokenizer.batch_decode(
+            labels, skip_special_tokens=True)
+        generations = self.decoder_tokenizer.batch_decode(
+            generations, skip_special_tokens=True)
+        assert len(generations) == len(labels) == len(
+            logits), "generations, labels and logits must have the same length"
         labels_list = [[label] for label in labels]
-        sacrebleu_score = self.sacrebleu_score_metric.compute(predictions=logits, references=labels_list)
-        chrf_score = self.chrf_score_metric.compute(predictions=logits, references=labels_list)
-        bert_score = self.bertscore_metric.compute(predictions=generations, references=labels, lang=self.bert_lang)
+        sacrebleu_score = self.sacrebleu_score_metric.compute(
+            predictions=logits, references=labels_list)
+        chrf_score = self.chrf_score_metric.compute(
+            predictions=logits, references=labels_list)
+        bert_score = self.bertscore_metric.compute(
+            predictions=generations, references=labels, lang=self.bert_lang)
         return {
             "sacrebleu_score": {
                 "sacrebleu": sacrebleu_score["score"]
@@ -361,9 +383,11 @@ class CodeMixedModelHGTrainer:
                     labels=batch["labels"].to(self.device)
                 )
                 logits = out.logits
-            generations = self.model.generate(batch["input_ids"].to(self.device), max_length=self.max_length, num_beams=self.num_beams, early_stopping=self.early_stopping)
+            generations = self.model.generate(batch["input_ids"].to(
+                self.device), max_length=self.max_length, num_beams=self.num_beams, early_stopping=self.early_stopping)
             labels = copy.deepcopy(batch["labels"])
-            scores = self._compute_metrics(logits=logits, generations=generations, labels=labels)
+            scores = self._compute_metrics(
+                logits=logits, generations=generations, labels=labels)
             sacrebleu_score += scores["sacrebleu_score"]["sacrebleu"]
             chrf_score += scores["chrf_score"]["chrf"]
             precision += scores["bert_score"]["precision"]
@@ -404,9 +428,11 @@ class CodeMixedModelHGTrainer:
                     labels=batch["labels"].to(self.device)
                 )
                 logits = out.logits
-            generations = model.generate(batch["input_ids"].to(self.device), max_length=self.max_length, num_beams=self.num_beams, early_stopping=self.early_stopping)
+            generations = model.generate(batch["input_ids"].to(
+                self.device), max_length=self.max_length, num_beams=self.num_beams, early_stopping=self.early_stopping)
             labels = copy.deepcopy(batch["labels"])
-            scores = self._compute_metrics(logits=logits, generations=generations, labels=labels)
+            scores = self._compute_metrics(
+                logits=logits, generations=generations, labels=labels)
             sacrebleu_score += scores["sacrebleu_score"]["sacrebleu"]
             chrf_score += scores["chrf_score"]["chrf"]
             precision += scores["bert_score"]["precision"]
@@ -417,8 +443,9 @@ class CodeMixedModelHGTrainer:
         precision /= len(self._get_test_data_loader(test_dataset=test_dataset))
         recall /= len(self._get_test_data_loader(test_dataset=test_dataset))
         f1 /= len(self._get_test_data_loader(test_dataset=test_dataset))
-        print(f"SacreBLEU score: {sacrebleu_score}\nCHRF score: {chrf_score}\nBERT score - Precision: {precision}\nBERT score - Recall: {recall}\nBERT score - F1: {f1}")
-   
+        print(
+            f"SacreBLEU score: {sacrebleu_score}\nCHRF score: {chrf_score}\nBERT score - Precision: {precision}\nBERT score - Recall: {recall}\nBERT score - F1: {f1}")
+
     def _fit(self) -> tuple:
         '''
             This function fits the model
@@ -426,11 +453,12 @@ class CodeMixedModelHGTrainer:
             Returns: tuple of the model and the best model
         '''
         if self.training_args.do_train:
-            if self.verbose: print("Training the model...")
+            if self.verbose:
+                print("Training the model...")
             self._train()
         else:
             print("Skipping training as `do_train` is False...")
-    
+
     def _validate(self) -> tuple:
         '''
             This function evaluates the model
@@ -438,11 +466,12 @@ class CodeMixedModelHGTrainer:
             Returns: tuple of the model and the best model
         '''
         if self.training_args.do_eval:
-            if self.verbose: print("\nValidating the model...")
+            if self.verbose:
+                print("\nValidating the model...")
             self._evaluate()
         else:
             print("Skipping evaluation as `do_eval` is False...")
-    
+
     def fit(self, skip_training: bool = False, skip_validation: bool = False) -> tuple:
         '''
             This function fits the model
@@ -456,9 +485,9 @@ class CodeMixedModelHGTrainer:
         if not skip_validation:
             if skip_training:
                 self.model = BartForConditionalGeneration(
-                        pretrained=True,
-                        pretrained_path=MBART_MODEL_CONDITIONAL_GENERATION_RESUME_FROM_CHECKPOINT
-                    ).model
+                    pretrained=True,
+                    pretrained_path=MBART_MODEL_CONDITIONAL_GENERATION_RESUME_FROM_CHECKPOINT
+                ).model
             self._validate()
 
     def predict(self, model_path: str = None) -> tuple:
@@ -472,15 +501,16 @@ class CodeMixedModelHGTrainer:
             if model_path is not None:
                 print("Loading the model...")
                 model = BartForConditionalGeneration(
-                        pretrained=True,
-                        pretrained_path=model_path).model
+                    pretrained=True,
+                    pretrained_path=model_path).model
             else:
                 model = self.model
-            if self.verbose: print("\nGenerating translations...\n")
+            if self.verbose:
+                print("\nGenerating translations...\n")
             self._predict(model=model)
         else:
             print("Skipping prediction as `do_predict` is False...")
-    
+
     def infer(self, model_path: str = None, src: Union[str, Dataset] = "Hi! tum kaisi ho?", need_print: bool = True) -> Union[str, list]:
         '''
             This function infers the model
@@ -490,37 +520,45 @@ class CodeMixedModelHGTrainer:
             Returns: translated sentence
         '''
         if model_path is not None:
-            if self.verbose and need_print: print("Loading the model...")
+            if self.verbose and need_print:
+                print("Loading the model...")
             model = BartForConditionalGeneration(
-                    pretrained=True,
-                    pretrained_path=model_path).model
+                pretrained=True,
+                pretrained_path=model_path).model
         else:
             model = self.model
-        if self.verbose and need_print: print("\nGenerating translation for the source string...\n")
+        if self.verbose and need_print:
+            print("\nGenerating translation for the source string...\n")
         model.to(self.device)
         model.eval()
         if isinstance(src, str):
             src_tokenized = self.encoder_tokenizer(
                 src,
-                add_special_tokens=self.encoder_add_special_tokens, 
-                max_length=self.encoder_max_length, 
-                return_tensors=self.encoder_return_tensors, 
-                padding=self.encoder_padding, 
+                add_special_tokens=self.encoder_add_special_tokens,
+                max_length=self.encoder_max_length,
+                return_tensors=self.encoder_return_tensors,
+                padding=self.encoder_padding,
                 verbose=False
             )
-            translation_ids = model.generate(src_tokenized["input_ids"], max_length=50, num_beams=5, early_stopping=True)
+            translation_ids = model.generate(
+                src_tokenized["input_ids"], max_length=50, num_beams=5, early_stopping=True)
             if translation_ids.shape[1] > 1:  # More than just EOS token
-                translation = self.decoder_tokenizer.decode(translation_ids[0], skip_special_tokens=True)
+                translation = self.decoder_tokenizer.decode(
+                    translation_ids[0], skip_special_tokens=True)
             else:
                 translation = ""
-            if self.verbose and need_print: print("Source string: ", src)
-            if self.verbose and need_print: print("Translated string: ", translation_ids)
+            if self.verbose and need_print:
+                print("Source string: ", src)
+            if self.verbose and need_print:
+                print("Translated string: ", translation_ids)
             return translation
         elif isinstance(src, Dataset):
             res = []
             for _, batch in enumerate(tqdm(self._get_test_data_loader(test_dataset=src), desc="Getting translation for the data")):
-                generation_ids = model.generate(batch["input_ids"].to(self.device), max_length=self.max_length, num_beams=self.num_beams, early_stopping=self.early_stopping)
-                generations = self.decoder_tokenizer.batch_decode(generation_ids, skip_special_tokens=True)
+                generation_ids = model.generate(batch["input_ids"].to(
+                    self.device), max_length=self.max_length, num_beams=self.num_beams, early_stopping=self.early_stopping)
+                generations = self.decoder_tokenizer.batch_decode(
+                    generation_ids, skip_special_tokens=True)
                 res.extend(generations)
             return res
 
@@ -544,9 +582,9 @@ class CodeMixedModel:
                  saved_model_path: str = MBART_MODEL_CONDITIONAL_GENERATION_LOAD_PATH,
                  model_name: str = MBART_MODEL_CONDITIONAL_GENERATION_TYPE,
                  generate_config: dict = {
-                        "max_length": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_MAX_LENGTH,
-                        "early_stopping": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_EARLY_STOPPING,
-                        "num_beams": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_NUM_BEAMS
+                     "max_length": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_MAX_LENGTH,
+                     "early_stopping": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_EARLY_STOPPING,
+                     "num_beams": MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_NUM_BEAMS
                  },
                  encoder_add_special_tokens: bool = MBART_ENCODER_ADD_SPECIAL_TOKENS,
                  encoder_max_length: int = MBART_ENCODER_MAX_LENGTH,
@@ -563,7 +601,7 @@ class CodeMixedModel:
                  freeze: bool = MBART_MODEL_CONDITIONAL_GENERATION_FREEZE_MODEL,
                  trainable_layers: list = None,
                  k_random: int = MBART_MODEL_CONDITIONAL_GENERATION_K_RANDOM
-                ) -> None:
+                 ) -> None:
         '''
             Initial definition of the Code Mixed Model
             Input params:
@@ -636,7 +674,8 @@ class CodeMixedModel:
         self.generate_config = None
         self.train_loss = []
         self.validation_loss = []
-        self.loader_features = ["src_tokenized", "src_attention_mask", "tgt_tokenized", "tgt_attention_mask"]
+        self.loader_features = [
+            "src_tokenized", "src_attention_mask", "tgt_tokenized", "tgt_attention_mask"]
         self.test_model = None
         self.bleu_metric = load_metric("bleu")
 
@@ -653,12 +692,13 @@ class CodeMixedModel:
             ).model
         else:
             raise NotImplementedError(f"Model {model_name} not implemented")
-    
+
     def _freeze_weights(self) -> None:
         '''
             Freezes the weights of the model given a list of layers to be trained, if no list is provided, all the layers are frozen
         '''
-        if self.verbose: print("Freezing the model...")
+        if self.verbose:
+            print("Freezing the model...")
         for name, param in self.model.named_parameters():
             if self.trainable_layers and name in self.trainable_layers:
                 param.requires_grad = True
@@ -666,7 +706,7 @@ class CodeMixedModel:
                 param.requires_grad = False
         if self.trainable_layers is None or len(self.trainable_layers) == 0:
             self.skip_train = True
-    
+
     def _save(self, model: object, special_msg: str) -> None:
         '''
             This function saves the model
@@ -676,24 +716,27 @@ class CodeMixedModel:
         model.to("cpu")
         if special_msg is None:
             model_name = self.model_name + "_" + \
-                ''.join(random.choices(string.ascii_uppercase + string.digits, k=self.k_random)) + ".pth"
+                ''.join(random.choices(string.ascii_uppercase +
+                        string.digits, k=self.k_random)) + ".pth"
         else:
             model_name = self.model_name + "_" + \
-                ''.join(random.choices(string.ascii_uppercase + string.digits, k=self.k_random)) + f"_{special_msg}.pth"
+                ''.join(random.choices(string.ascii_uppercase +
+                        string.digits, k=self.k_random)) + f"_{special_msg}.pth"
         self.save_path = self.save_path_dir + '/' + model_name
         torch.save({
             'epoch': self.epochs,
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
-            }, self.save_path)
+        }, self.save_path)
         print(f"\nModel saved to -> {self.save_path}...")
         model.to(self.device)
-    
+
     def _configure_optimizers(self) -> None:
         '''
             This function configures the optimizer and scheduler.
         '''
-        if self.verbose: print("\nConfiguring optimizer and scheduler...")
+        if self.verbose:
+            print("\nConfiguring optimizer and scheduler...")
         if MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_TYPE == "AdamW":
             optimizer = AdamW(
                 params=self.model.parameters(),
@@ -705,7 +748,8 @@ class CodeMixedModel:
                 no_deprecation_warning=MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_NO_DEPRICATION_WARNING
             )
         else:
-            raise NotImplementedError(f"Optimizer {MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_TYPE} not implemented.")
+            raise NotImplementedError(
+                f"Optimizer {MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_TYPE} not implemented.")
         if MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_TYPE == "get_linear_schedule_with_warmup":
             scheduler = get_linear_schedule_with_warmup(
                 optimizer=optimizer,
@@ -714,15 +758,17 @@ class CodeMixedModel:
                 last_epoch=MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_LAST_EPOCH
             )
         else:
-            raise NotImplementedError(f"Scheduler {MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_TYPE} not implemented.")
+            raise NotImplementedError(
+                f"Scheduler {MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_TYPE} not implemented.")
         self.optimizer = optimizer
         self.scheduler = scheduler
-    
+
     def _configure_criterion(self) -> None:
         '''
             This function configures the criterion.
         '''
-        if self.verbose: print("\nConfiguring criterion...")
+        if self.verbose:
+            print("\nConfiguring criterion...")
         if MBART_MODEL_CONDITIONAL_GENERATION_CRITERION_TYPE == "CrossEntropyLoss":
             criterion = torch.nn.CrossEntropyLoss(
                 weight=MBART_MODEL_CONDITIONAL_GENERATION_CRITERION_WEIGHT,
@@ -733,7 +779,8 @@ class CodeMixedModel:
                 label_smoothing=MBART_MODEL_CONDITIONAL_GENERATION_CRITERION_LABEL_SMOOTHING
             )
         else:
-            raise NotImplementedError(f"Criterion {MBART_MODEL_CONDITIONAL_GENERATION_CRITERION_TYPE} not implemented.")
+            raise NotImplementedError(
+                f"Criterion {MBART_MODEL_CONDITIONAL_GENERATION_CRITERION_TYPE} not implemented.")
         self.criterion = criterion
 
     def _plot_loss_curve(self, x_label: str = 'Epochs'):
@@ -746,13 +793,14 @@ class CodeMixedModel:
         plt.plot(epochs, self.train_loss, 'g', label='Training loss')
         plt.plot(epochs, self.train_loss, 'g*', label='Training loss spots')
         plt.plot(epochs, self.validation_loss, 'r', label='Validation loss')
-        plt.plot(epochs, self.validation_loss, 'r*', label='Validation loss spots')
+        plt.plot(epochs, self.validation_loss, 'r*',
+                 label='Validation loss spots')
         plt.title('Training and testing Loss')
         plt.xlabel(x_label)
         plt.ylabel('Loss')
         plt.legend()
         plt.show()
-    
+
     def _compute_bleu(self, true_ids: torch.LongTensor, logits: torch.LongTensor) -> float:
         '''
             This function computes the BLEU score.
@@ -764,24 +812,29 @@ class CodeMixedModel:
         y = true_ids.tolist()
         y_hat = torch.argmax(logits, dim=-1)
         y_hat = y_hat.tolist()
-        assert len(y) == len(y_hat), "Length of true and predicted sequences not equal..."
+        assert len(y) == len(
+            y_hat), "Length of true and predicted sequences not equal..."
         references, predictions = [], []
         for i in range(len(y)):
-            references.append([self.decoder_tokenizer.decode(y[i], skip_special_tokens=True).split()])
-            predictions.append(self.decoder_tokenizer.decode(y_hat[i], skip_special_tokens=True).split())
+            references.append([self.decoder_tokenizer.decode(
+                y[i], skip_special_tokens=True).split()])
+            predictions.append(self.decoder_tokenizer.decode(
+                y_hat[i], skip_special_tokens=True).split())
         return self.bleu_metric.compute(
             predictions=predictions,
             references=references
         )['bleu']
-    
+
     def _train(self) -> tuple:
         '''
             This function trains the model
             Input params: None
             Returns: tuple of the model and the best model
         '''
-        if self.verbose: print("\nTraining the model...")
-        print(f"\nDEVICE - {self.device} || EPOCHS - {self.epochs} || LEARNING RATE - {self.optimizer.param_groups[0]['lr']}.")
+        if self.verbose:
+            print("\nTraining the model...")
+        print(
+            f"\nDEVICE - {self.device} || EPOCHS - {self.epochs} || LEARNING RATE - {self.optimizer.param_groups[0]['lr']}.")
         if self.skip_train:
             print("Skipping training as model params are all frozen...")
         else:
@@ -792,12 +845,14 @@ class CodeMixedModel:
                 if self.verbose:
                     _start_at = datetime.now().strftime('%H:%M:%S %d|%m|%Y')
                     _lr = self.optimizer.param_groups[0]['lr']
-                    print(f'\nEPOCH - {epoch+1}/{self.epochs} || START AT - {_start_at} || LEARNING RATE - {_lr}\n')
+                    print(
+                        f'\nEPOCH - {epoch+1}/{self.epochs} || START AT - {_start_at} || LEARNING RATE - {_lr}\n')
                 running_bleu, running_loss, step_running_loss, step_running_bleu = 0, 0, 0, 0
                 start_step_time = time.time()
                 for step, (batch) in enumerate(self.train_data_loader):
                     for key in batch:
-                        if key in self.loader_features: batch[key] = batch[key].to(self.device)
+                        if key in self.loader_features:
+                            batch[key] = batch[key].to(self.device)
                     out = self.model(
                         input_ids=batch["src_tokenized"],
                         attention_mask=batch["src_attention_mask"],
@@ -805,9 +860,11 @@ class CodeMixedModel:
                         decoder_attention_mask=batch["tgt_attention_mask"]
                     )
                     logits = out.logits
-                    y, y_hat = batch["tgt_tokenized"].view(-1), logits.view(-1, logits.size(-1))
+                    y, y_hat = batch["tgt_tokenized"].view(
+                        -1), logits.view(-1, logits.size(-1))
                     loss = self.criterion(y_hat, y)
-                    bleu_score = self._compute_bleu(true_ids=batch["tgt_tokenized"], logits=logits)
+                    bleu_score = self._compute_bleu(
+                        true_ids=batch["tgt_tokenized"], logits=logits)
                     loss.backward()
                     self.optimizer.step()
                     self.optimizer.zero_grad()
@@ -818,17 +875,19 @@ class CodeMixedModel:
                     if self.verbose:
                         if (step+1) % self.verbose_step == 0:
                             print(
-                                    f'\tTrain Step - {step+1}/{len(self.train_data_loader)} | ' + \
-                                    f'Train Step Loss: {(step_running_loss/self.verbose_step):.5f} | ' + \
-                                    f'Train BLEU Score: {(step_running_bleu/self.verbose_step):.5f} | ' + \
-                                    f'Time: {(time.time() - start_step_time):.2f}s.\n'
-                                )
-                            step_running_loss = 0  
-                            step_running_bleu = 0 
+                                f'\tTrain Step - {step+1}/{len(self.train_data_loader)} | ' +
+                                f'Train Step Loss: {(step_running_loss/self.verbose_step):.5f} | ' +
+                                f'Train BLEU Score: {(step_running_bleu/self.verbose_step):.5f} | ' +
+                                f'Time: {(time.time() - start_step_time):.2f}s.\n'
+                            )
+                            step_running_loss = 0
+                            step_running_bleu = 0
                             start_step_time = time.time()
                             if self.save_model:
-                                self._save(model=self.model, special_msg=f"epoch_{str(epoch+1)}_step_{str(step+1)}")
-                self.train_loss.append(running_loss/len(self.train_data_loader))
+                                self._save(
+                                    model=self.model, special_msg=f"epoch_{str(epoch+1)}_step_{str(step+1)}")
+                self.train_loss.append(
+                    running_loss/len(self.train_data_loader))
                 if self.verbose:
                     print(f'\tEPOCH - {epoch+1}/{self.epochs} || TRAIN-LOSS - {(running_loss/len(self.train_data_loader)):.5f} || BLEU SCORE - {bleu_score:.5f} || TIME ELAPSED - {(time.time() - start_epoch_time):.2f}s.\n')
                 # Validation Phase
@@ -838,7 +897,9 @@ class CodeMixedModel:
                 with torch.no_grad():
                     for _, (validation_batch) in enumerate(self.validation_data_loader):
                         for key in validation_batch:
-                            if key in self.loader_features: validation_batch[key] = validation_batch[key].to(self.device)
+                            if key in self.loader_features:
+                                validation_batch[key] = validation_batch[key].to(
+                                    self.device)
                         out = self.model(
                             input_ids=validation_batch["src_tokenized"],
                             attention_mask=validation_batch["src_attention_mask"],
@@ -846,26 +907,30 @@ class CodeMixedModel:
                             decoder_attention_mask=validation_batch["tgt_attention_mask"]
                         )
                         logits = out.logits
-                        y, y_hat = validation_batch["tgt_tokenized"].view(-1), logits.view(-1, logits.size(-1))
+                        y, y_hat = validation_batch["tgt_tokenized"].view(
+                            -1), logits.view(-1, logits.size(-1))
                         loss = self.criterion(y_hat, y)
-                        bleu_score = self._compute_bleu(true_ids=validation_batch["tgt_tokenized"], logits=logits)
+                        bleu_score = self._compute_bleu(
+                            true_ids=validation_batch["tgt_tokenized"], logits=logits)
                         running_validation_loss += loss.item()
                         running_validation_bleu += bleu_score
                 if self.verbose:
                     print(f'\tEPOCH - {epoch+1}/{self.epochs} || VAL-LOSS - {(running_validation_loss/len(self.validation_data_loader)):.5f} || BLEU SCORE - {(running_validation_bleu/len(self.validation_data_loader)):.5f} || TIME ELAPSED - {(time.time() - start_epoch_validation_time):.2f}s.\n')
-                self.validation_loss.append(running_validation_loss/len(self.validation_data_loader))
+                self.validation_loss.append(
+                    running_validation_loss/len(self.validation_data_loader))
                 if self.best_test_loss > running_validation_loss:
                     self.best_test_loss = running_validation_loss
                     self.best_model = copy.deepcopy(self.model)
                 self.scheduler.step()
                 if self.save_model:
-                    self._save(model=self.model, special_msg=f"epoch_{str(epoch+1)}")
+                    self._save(model=self.model,
+                               special_msg=f"epoch_{str(epoch+1)}")
             if self.verbose:
                 self.plot_loss_curve()
         if self.save_model:
             self._save(model=self.best_model)
         return (self.model.to("cpu"), self.best_model.to("cpu"))
-    
+
     def _configure_generate_config(self) -> None:
         '''
             This function configures the generate config.
@@ -896,13 +961,15 @@ class CodeMixedModel:
             Returns: tuple of the model and the best model
         '''
         assert self.test_model is not None, "Model not loaded, set `test_model`..."
-        if self.verbose: print("\nTesting the model...")
+        if self.verbose:
+            print("\nTesting the model...")
         start_test_time = time.time()
         self.test_model = self.test_model.to(self.device)
         test_loss, test_bleu_Score = 0, 0
         for _, (test_batch) in tqdm(enumerate(self.test_data_loader)):
             for key in test_batch:
-                if key in self.loader_features: test_batch[key] = test_batch[key].to(self.device)
+                if key in self.loader_features:
+                    test_batch[key] = test_batch[key].to(self.device)
             out = self.test_model(
                 input_ids=test_batch["src_tokenized"],
                 attention_mask=test_batch["src_attention_mask"],
@@ -910,13 +977,15 @@ class CodeMixedModel:
                 decoder_attention_mask=test_batch["tgt_attention_mask"]
             )
             logits = out.logits
-            y, y_hat = test_batch["tgt_tokenized"].view(-1), logits.view(-1, logits.size(-1))
+            y, y_hat = test_batch["tgt_tokenized"].view(
+                -1), logits.view(-1, logits.size(-1))
             loss = self.criterion(y_hat, y)
             test_loss += loss.item()
-            bleu_score = self._compute_bleu(true_ids=test_batch["tgt_tokenized"], logits=logits)
+            bleu_score = self._compute_bleu(
+                true_ids=test_batch["tgt_tokenized"], logits=logits)
             test_bleu_score += bleu_score
         print(f'\nTEST-LOSS - {(test_loss/len(self.test_data_loader)):.5f} || BLEU SCORE - {(test_bleu_Score/len(self.test_data_loader)):.5f} || TIME ELAPSED - {(time.time() - start_test_time):.2f}s.\n')
-        
+
     def _infer(self, src: str,
                model: BartForConditionalGeneration = None,
                device: str = "cpu") -> str:
@@ -934,33 +1003,42 @@ class CodeMixedModel:
         model = model.to(device)
         src_tokenized = self.encoder_tokenizer(
             src,
-            add_special_tokens=self.encoder_add_special_tokens, 
-            max_length=self.encoder_max_length, 
-            return_tensors=self.encoder_return_tensors, 
-            padding=self.encoder_padding, 
+            add_special_tokens=self.encoder_add_special_tokens,
+            max_length=self.encoder_max_length,
+            return_tensors=self.encoder_return_tensors,
+            padding=self.encoder_padding,
             verbose=self.encoder_verbose
         )
-        output = self._generate(input_ids=src_tokenized["input_ids"].to(device))
-        output_str = self.decoder_tokenizer.decode(output[0].tolist(), skip_special_tokens=True)
+        output = self._generate(
+            input_ids=src_tokenized["input_ids"].to(device))
+        output_str = self.decoder_tokenizer.decode(
+            output[0].tolist(), skip_special_tokens=True)
         return output_str
 
     def load_model(self) -> object:
         '''
             Loads the saved model
         '''
-        if self.verbose: print("Loading model...")
+        if self.verbose:
+            print("Loading model...")
         self.model = self._get_model(self.model_name)
         if self.saved_model_path is not None:
-            state_dict = torch.load(self.saved_model_path, map_location=torch.device("cpu"))
+            state_dict = torch.load(
+                self.saved_model_path, map_location=torch.device("cpu"))
             self.model.load_state_dict(state_dict)
             self.model.to(self.device)
             self.start_epoch = state_dict['epoch']
-            if self.verbose: print(f"Loaded model from {self.saved_model_path}...")
+            if self.verbose:
+                print(f"Loaded model from {self.saved_model_path}...")
         else:
-            if self.verbose: print("No saved model to load as `saved_model_path` was not provided in the `__init__()`...")
-        if self.freeze: self._freeze_weights()
+            if self.verbose:
+                print(
+                    "No saved model to load as `saved_model_path` was not provided in the `__init__()`...")
+        if self.freeze:
+            self._freeze_weights()
         self.best_model = copy.deepcopy(self.model)
-        if self.verbose: print(self.model)
+        if self.verbose:
+            print(self.model)
         return self.model
 
     def fit(self) -> tuple:
@@ -973,7 +1051,7 @@ class CodeMixedModel:
         self._configure_optimizers()
         self._configure_criterion()
         return self._train()
-    
+
     def test(self, use_best: bool = True) -> None:
         '''
             This function tests the model
@@ -985,9 +1063,10 @@ class CodeMixedModel:
             self.test_model = copy.deepcopy(self.best_model)
         else:
             self.test_model = copy.deepcopy(self.model)
-        if self.generate_config is None: self._configure_generate_config()
+        if self.generate_config is None:
+            self._configure_generate_config()
         self._test()
-    
+
     def infer(self, src: list,
               model: BartForConditionalGeneration = None,
               device: str = "cpu") -> list:
@@ -1003,8 +1082,10 @@ class CodeMixedModel:
             model = self.test_model
         if model is None:
             model = self.test_model = self.load_model()
-        if self.verbose: print("Inferring...")
-        if self.generate_config is None: self._configure_generate_config()
+        if self.verbose:
+            print("Inferring...")
+        if self.generate_config is None:
+            self._configure_generate_config()
         res = []
         for s in src:
             res.append((s, self._infer(

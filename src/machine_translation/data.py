@@ -8,7 +8,7 @@ from src.machine_translation import *
 from src.data.tokenizer import CustomBartTokenizer
 from src.machine_translation.collator import DataCollatorForLanguageMasking, DataCollatorForLanguagePermutation
 
-    
+
 class CodeMixedDataset(Dataset):
 
     '''
@@ -19,7 +19,7 @@ class CodeMixedDataset(Dataset):
                  denoising_stage: bool = False,
                  src_lang: str = "hi_en",
                  tgt_lang: str = "en",
-                 overfit: bool = False, 
+                 overfit: bool = False,
                  overfit_size: int = 32):
         '''
             Initial definition of the dataset
@@ -69,21 +69,23 @@ class CodeMixedTokenizedDataset(Dataset):
                  denoising_stage: bool = False,
                  src_lang: str = "hi_en",
                  tgt_lang: str = "en",
-                 encoder_tokenizer: Union[BartTokenizer, CustomBartTokenizer] = None,
+                 encoder_tokenizer: Union[BartTokenizer,
+                                          CustomBartTokenizer] = None,
                  encoder_add_special_tokens: bool = True,
                  encoder_max_length: int = None,
                  encoder_return_tensors: str = "pt",
                  encoder_padding: Union[bool, str] = True,
                  encoder_truncation: bool = True,
                  encoder_verbose: bool = True,
-                 decoder_tokenizer: Union[BartTokenizer, CustomBartTokenizer] = None,
+                 decoder_tokenizer: Union[BartTokenizer,
+                                          CustomBartTokenizer] = None,
                  decoder_add_special_tokens: bool = True,
                  decoder_max_length: int = None,
                  decoder_return_tensors: str = "pt",
                  decoder_padding: Union[bool, str] = True,
                  decoder_truncation: bool = True,
                  decoder_verbose: bool = True,
-                 overfit: bool = False, 
+                 overfit: bool = False,
                  overfit_size: int = 32):
         '''
             Initial definition of the dataset
@@ -172,7 +174,7 @@ class CodeMixedTokenizedDataset(Dataset):
             "labels": labels,
         }
         return instance
-    
+
     def visualize(self) -> None:
         '''
             This function is used to visualize the dataset results.
@@ -204,14 +206,16 @@ class CodeMixedDataLoader(DataLoader):
                  train_shuffle: bool = True,
                  validation_shuffle: bool = True,
                  test_shuffle: bool = True,
-                 encoder_tokenizer: Union[BartTokenizer, CustomBartTokenizer] = None,
+                 encoder_tokenizer: Union[BartTokenizer,
+                                          CustomBartTokenizer] = None,
                  encoder_add_special_tokens: bool = True,
                  encoder_max_length: int = None,
                  encoder_return_tensors: str = "pt",
                  encoder_padding: Union[bool, str] = True,
                  encoder_truncation: bool = True,
                  encoder_verbose: bool = True,
-                 decoder_tokenizer: Union[BartTokenizer, CustomBartTokenizer] = None,
+                 decoder_tokenizer: Union[BartTokenizer,
+                                          CustomBartTokenizer] = None,
                  decoder_add_special_tokens: bool = True,
                  decoder_max_length: int = None,
                  decoder_return_tensors: str = "pt",
@@ -225,7 +229,7 @@ class CodeMixedDataLoader(DataLoader):
                  overfit_batch_size: int = 32,
                  num_workers: int = None,
                  pin_memory: bool = False,
-                ) -> None:
+                 ) -> None:
         '''
             Initial definition of the dataloader
             Input params:
@@ -261,9 +265,12 @@ class CodeMixedDataLoader(DataLoader):
                 pin_memory: bool, if True, the data will be pinned to memory
         '''
         super().__init__(self)
-        assert set(PROCESSED_COLUMN_NAMES).issubset(set(train_df.columns)), "Column names not found in train dataframe."
-        assert set(PROCESSED_COLUMN_NAMES).issubset(set(validation_df.columns)) , "Column names not found in validation dataframe."
-        assert set(PROCESSED_COLUMN_NAMES).issubset(set(test_df.columns)), "Column names not found in test dataframe."
+        assert set(PROCESSED_COLUMN_NAMES).issubset(
+            set(train_df.columns)), "Column names not found in train dataframe."
+        assert set(PROCESSED_COLUMN_NAMES).issubset(
+            set(validation_df.columns)), "Column names not found in validation dataframe."
+        assert set(PROCESSED_COLUMN_NAMES).issubset(
+            set(test_df.columns)), "Column names not found in test dataframe."
         assert src_lang in PROCESSED_COLUMN_NAMES, "Source language not found in column names."
         assert tgt_lang in PROCESSED_COLUMN_NAMES, "Target language not found in column names."
         assert encoder_tokenizer is not None, "Encoder tokenizer cannot be None."
@@ -301,10 +308,13 @@ class CodeMixedDataLoader(DataLoader):
         self.num_workers = os.cpu_count() // 2 if num_workers is None else num_workers
         if self.denoising_stage:
             self.tgt_lang = self.src_lang
-            self.mlm_data_collator = DataCollatorForLanguageMasking(tokenizer=self.encoder_tokenizer)
-            self.plm_data_collator = DataCollatorForLanguagePermutation(tokenizer=self.encoder_tokenizer)
-            self.data_collators = [self.mlm_data_collator, self.plm_data_collator]
-        
+            self.mlm_data_collator = DataCollatorForLanguageMasking(
+                tokenizer=self.encoder_tokenizer)
+            self.plm_data_collator = DataCollatorForLanguagePermutation(
+                tokenizer=self.encoder_tokenizer)
+            self.data_collators = [
+                self.mlm_data_collator, self.plm_data_collator]
+
     def custom_collate_fn(self, batch: list) -> dict:
         '''
             Returns a collated batch of data
@@ -396,7 +406,7 @@ class CodeMixedDataLoader(DataLoader):
             collate_fn=self.custom_collate_fn
         )
         return (train_data_loader, validation_data_loader, test_data_loader)
-    
+
     def visualize(self) -> None:
         '''
             This function is used to visualize the dataset results.
@@ -428,10 +438,14 @@ class CodeMixedDataLoader(DataLoader):
         print("Batch target tokens: ", batch_tgt_tokenized)
         print("Batch target attention mask: ", batch_tgt_attention_mask)
         if self.denoising_stage:
-            print("Batch denoising source language shape: ", batch_denoising_src_tokenized.shape)
-            print("Batch denoising source tokens: ", batch_denoising_src_tokenized)
-            batch_denoising_src_decoded = self.encoder_tokenizer.batch_decode(batch_denoising_src_tokenized)
-            print("Batch denoising source decoded: ", batch_denoising_src_decoded)
+            print("Batch denoising source language shape: ",
+                  batch_denoising_src_tokenized.shape)
+            print("Batch denoising source tokens: ",
+                  batch_denoising_src_tokenized)
+            batch_denoising_src_decoded = self.encoder_tokenizer.batch_decode(
+                batch_denoising_src_tokenized)
+            print("Batch denoising source decoded: ",
+                  batch_denoising_src_decoded)
             print("Batch denoising labels: ", batch_denoising_labels)
             print("Batch denoising mask: ", batch_denoising_mask)
         print("Validating train laoder...")

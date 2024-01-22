@@ -13,6 +13,17 @@ MBART_ENCODER_MAX_LENGTH = __config__["mbart_code_mixed"]["dataloader"]["encoder
 MBART_ENCODER_RETURN_TENSORS = __config__["mbart_code_mixed"]["dataloader"]["encoder"]["return_tensors"]
 MBART_ENCODER_PADDING = __config__["mbart_code_mixed"]["dataloader"]["encoder"]["padding"]
 MBART_ENCODER_TRUNCATION = __config__["mbart_code_mixed"]["dataloader"]["encoder"]["truncation"]
+MBART_ENCODER_MLM = __config__["mbart_code_mixed"]["dataloader"]["encoder"]["mlm"]
+MBART_ENCODER_MLM_PROBABILITY = __config__["mbart_code_mixed"]["dataloader"]["encoder"]["mlm_probability"]
+MBART_ENCODER_ENABLE_GROUP_MASK = __config__["mbart_code_mixed"]["dataloader"]["encoder"]["enable_group_mask"]
+MBART_ENCODER_MASK_MAX_LENGTH = __config__["mbart_code_mixed"]["dataloader"]["encoder"]["mask_max_length"]
+MBART_ENCODER_PLM = __config__["mbart_code_mixed"]["dataloader"]["encoder"]["plm"]
+MBART_ENCODER_PLM_PROBABILITY = __config__["mbart_code_mixed"]["dataloader"]["encoder"]["plm_probability"]
+MBART_ENCODER_PLM_MAX_LENGTH = __config__["mbart_code_mixed"]["dataloader"]["encoder"]["plm_max_length"]
+MBART_ENCODER_PLM_MIN_WINDOW_LENGTH = __config__[
+    "mbart_code_mixed"]["dataloader"]["encoder"]["plm_min_window_length"]
+MBART_ENCODER_STYLE_SWITCH_PROBABILITY = __config__["mbart_code_mixed"]["dataloader"]["encoder"]["style_switch_probability"]
+
 MBART_ENCODER_VERBOSE = __config__["mbart_code_mixed"]["dataloader"]["encoder"]["verbose"]
 MBART_DECODER_ADD_SPECIAL_TOKENS = __config__["mbart_code_mixed"]["dataloader"]["decoder"]["add_special_tokens"]
 MBART_DECODER_MAX_LENGTH = __config__["mbart_code_mixed"]["dataloader"]["decoder"]["max_length"]

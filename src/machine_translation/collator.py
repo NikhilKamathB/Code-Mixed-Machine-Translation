@@ -1,7 +1,8 @@
 import torch
 import random
-from typing import Union, Tuple
-from transformers import BartTokenizer
+from transformers.utils import PaddingStrategy
+from typing import Union, Tuple, List, Dict, Any, Optional
+from transformers import BartTokenizer, DataCollatorWithPadding
 from src.data.tokenizer import CustomBartTokenizer
 
 
@@ -13,20 +14,28 @@ class DataCollatorMixin:
 
     def __call__(self, features: dict) -> dict:
         '''
-            Description: Calls the data collator.
+            Calls the data collator.
             Input parameters:
                 - features: A dictionary containing the features.
             Outputs: A dictionary containing the processed features.
         '''
         assert isinstance(features, dict), "`features` should be a dictionary."
         assert "input_ids" in features or "src_tokenized" in features, "`input_ids` or `src_tokenized` should be a key in `features`."
-        input_ids = "input_ids"
+        assert "labels" in features or "tgt_tokenized" in features, "`labels` or `tgt_tokenized` should be a key in `features`."
+        input_ids, labels = "input_ids", "labels"
         if "src_tokenized" in features:
             input_ids = "src_tokenized"
+        if "tgt_tokenized" in features:
+            labels = "tgt_tokenized"
         processed_input_ids, processed_labels, processed_mask = self._torch_call(input_ids=features[input_ids])
-        features[f"denoising_{input_ids}"] = processed_input_ids
-        features[f"denoising_labels"] = processed_labels
-        features[f"denoising_mask"] = processed_mask
+        if self.replace:
+            features[input_ids] = processed_input_ids
+            features[labels] = processed_labels
+            features["mask"] = processed_mask
+        else:
+            features[f"denoising_{input_ids}"] = processed_input_ids
+            features[f"denoising_labels"] = processed_labels
+            features[f"denoising_mask"] = processed_mask
         return features
 
     def _get_special_token_mask(self, input_ids: torch.Tensor, tokenizer: Union[BartTokenizer, CustomBartTokenizer]) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -117,7 +126,7 @@ class DataCollatorForLanguageMasking(DataCollatorMixin):
             Output (masked): "Hello, <mask> <mask> <mask> masking task."
     '''
 
-    def __init__(self, tokenizer: Union[BartTokenizer, CustomBartTokenizer], mlm: bool = True, enable_group_mask: bool = True, max_length: int = 5, mlm_probability: float = 0.15, style_switch_probability: float = 0.15) -> None:
+    def __init__(self, tokenizer: Union[BartTokenizer, CustomBartTokenizer], mlm: bool = True, enable_group_mask: bool = True, max_length: int = 5, mlm_probability: float = 0.15, style_switch_probability: float = 0.15, replace: bool = False) -> None:
         '''
             Initalizes the data collator for language masking tasks.
             Input parameters:
@@ -128,6 +137,7 @@ class DataCollatorForLanguageMasking(DataCollatorMixin):
                 mlm_probability: A float containing the probability of masking the language.
                 style_switch_probability: A float containing the probability of switching the style [style available: mask unit token | mask group of contiguous tokens]
                                           Defaults to 0.15, with main focus on unit masking.
+                replace: Make changes inplace or not.
         '''
         super().__init__()
         self.tokenizer = tokenizer
@@ -136,6 +146,7 @@ class DataCollatorForLanguageMasking(DataCollatorMixin):
         self.max_length = max_length
         self.mlm_probability = mlm_probability
         self.style_switch_probability = style_switch_probability
+        self.replace = replace
 
     def _mask_tokens(self, input_ids: torch.Tensor) -> torch.Tensor:
         '''
@@ -190,7 +201,7 @@ class DataCollatorForLanguagePermutation(DataCollatorMixin):
             Output (masked): "Hello, for is this task."
     '''
 
-    def __init__(self, tokenizer: Union[BartTokenizer, CustomBartTokenizer], plm: bool = True, max_length: int = 5, plm_probability: float = 0.5, min_window_length: int = 2) -> None:
+    def __init__(self, tokenizer: Union[BartTokenizer, CustomBartTokenizer], plm: bool = True, max_length: int = 5, plm_probability: float = 0.5, min_window_length: int = 2, replace: bool = False) -> None:
         '''
             Initalizes the data collator for language permutation tasks.
             Input parameters:
@@ -199,6 +210,7 @@ class DataCollatorForLanguagePermutation(DataCollatorMixin):
                 max_length: An integer containing the maximum length for the group mask.
                 plm_probability: A float containing the probability of masking the language.
                 min_window_length: An integer containing the minimum window length.
+                replace: Make changes inplace or not.
         '''
         super().__init__()
         self.tokenizer = tokenizer
@@ -206,6 +218,7 @@ class DataCollatorForLanguagePermutation(DataCollatorMixin):
         self.max_length = max_length
         self.plm_probability = plm_probability
         self.min_window_length = min_window_length
+        self.replace = replace
     
     def _permute_tokens(self, input_ids: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         '''
@@ -254,3 +267,103 @@ class DataCollatorForLanguagePermutation(DataCollatorMixin):
             labels = torch.full(input_ids.shape, -100).int()
             mask = torch.zeros(input_ids.shape).int()
             return (input_ids, labels, mask)
+
+
+class DataCollator(DataCollatorMixin, DataCollatorWithPadding):
+
+    '''
+        All in one data collator for machine translation tasks. It supports:
+            1. Padding
+            2. Masking and group masking
+            3. Permutation
+    '''
+    
+    def __init__(self, 
+                 tokenizer: Union[BartTokenizer, CustomBartTokenizer], 
+                 mlm: bool = True, 
+                 plm: bool = True, 
+                 padding: Union[bool, str, PaddingStrategy] = True,
+                 enable_group_mask: bool = True, 
+                 denoising_stage: bool = False,
+                 mask_max_length: int = 5, 
+                 permute_mask_length: int = 5,
+                 padding_max_length: Optional[int] = None,
+                 pad_to_multiple_of: Optional[int] = None,
+                 return_tensors: str = "pt",
+                 mlm_probability: float = 0.15, 
+                 plm_probability: float = 0.5, 
+                 min_window_length: int = 2, 
+                 style_switch_probability: float = 0.15) -> None:
+        '''
+            Initalizes the data collator for machine translation tasks.
+            Input parameters:
+                tokenizer: A BartTokenizer or CustomBartTokenizer object.
+                mlm: A boolean indicating whether to mask the language or not.
+                plm: A boolean indicating whether to permute the language or not.
+                padding: A boolean indicating whether to pad the language or not.
+                enable_group_mask: A boolean indicating whether or not to mask a group of tokens.
+                denoising_stage: A boolean indicating whether or not to perform denoising.
+                mask_max_length: An integer containing the maximum length for the group mask.
+                permute_mask_length: An integer containing the maximum length for the permutation mask.
+                padding_max_length: An integer containing the maximum length for the padding.
+                pad_to_multiple_of: An integer containing the padding multiple.
+                return_tensors: A string containing the return tensor type.
+                mlm_probability: A float containing the probability of masking the language.
+                plm_probability: A float containing the probability of permuting the language.
+                min_window_length: An integer containing the minimum window length.
+                style_switch_probability: A float containing the probability of switching the style [style available: mask unit token | mask group of contiguous tokens]
+                                          Defaults to 0.15, with main focus on unit masking.
+        '''
+        self.plm = plm
+        self.plm_probability = plm_probability
+        self.min_window_length = min_window_length
+        self.tokenizer = tokenizer
+        self.mlm = mlm
+        self.padding = padding
+        self.padding_max_length = padding_max_length
+        self.pad_to_multiple_of = pad_to_multiple_of
+        self.return_tensors = return_tensors
+        self.enable_group_mask = enable_group_mask
+        self.denoising_stage = denoising_stage
+        self.mask_max_length = mask_max_length
+        self.permute_mask_length = permute_mask_length
+        self.mlm_probability = mlm_probability
+        self.style_switch_probability = style_switch_probability
+        self.data_padding_collator = DataCollatorWithPadding(
+            tokenizer=self.tokenizer,
+            padding=self.padding,
+            max_length=self.padding_max_length,
+            pad_to_multiple_of=self.pad_to_multiple_of,
+            return_tensors=self.return_tensors
+        )
+        if self.denoising_stage:
+            data_masking_collator = DataCollatorForLanguageMasking(
+                tokenizer=self.tokenizer,
+                mlm=self.mlm,
+                enable_group_mask=self.enable_group_mask,
+                max_length=self.mask_max_length,
+                mlm_probability=self.mlm_probability,
+                style_switch_probability=self.style_switch_probability
+            )
+            data_permutation_collator = DataCollatorForLanguagePermutation(
+                tokenizer=self.tokenizer,
+                plm=self.plm,
+                max_length=self.permute_mask_length,
+                plm_probability=self.plm_probability,
+                min_window_length=self.min_window_length
+            )
+            self.denoising_data_collator = [
+                data_masking_collator, data_permutation_collator]
+
+    def __call__(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
+        '''
+            Calls the data collator.
+            Input parameters:
+                - features: A dictionary containing the features.
+            Outputs: A dictionary containing the processed features.
+        '''
+        batch = self.data_padding_collator(features=features)
+        if self.denoising_stage:
+            denoising_collator = random.choice(self.data_collator)
+            batch = denoising_collator(features=batch)
+        return batch

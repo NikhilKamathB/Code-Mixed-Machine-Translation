@@ -17,7 +17,7 @@ from src.data import *
 from src.machine_translation import *
 from src.data.tokenizer import CustomBartTokenizer
 from src.machine_translation.models.bart_conditional import BartForConditionalGeneration
-from src.machine_translation.collator import DataCollatorForLanguageMasking, DataCollatorForLanguagePermutation
+from src.machine_translation.collator import DataCollator
 
 
 class CodeMixedModelHGTrainer:
@@ -51,12 +51,22 @@ class CodeMixedModelHGTrainer:
                  max_length: int = MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_MAX_LENGTH,
                  early_stopping: bool = MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_EARLY_STOPPING,
                  num_beams: int = MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_NUM_BEAMS,
+                 denoising_stage: bool = False,
                  encoder_tokenizer: CustomBartTokenizer = None,
                  decoder_tokenizer: CustomBartTokenizer = None,
                  encoder_add_special_tokens: bool = MBART_ENCODER_ADD_SPECIAL_TOKENS,
                  encoder_max_length: int = MBART_ENCODER_MAX_LENGTH,
                  encoder_return_tensors: str = MBART_ENCODER_RETURN_TENSORS,
                  encoder_padding: Union[bool, str] = MBART_ENCODER_PADDING,
+                 encoder_mlm: bool = MBART_ENCODER_MLM,
+                 encoder_mlm_probability: float = MBART_ENCODER_MLM_PROBABILITY,
+                 encoder_enable_group_mask: bool = MBART_ENCODER_ENABLE_GROUP_MASK,
+                 encoder_mask_max_length: int = MBART_ENCODER_MASK_MAX_LENGTH,
+                 encoder_plm: bool = MBART_ENCODER_PLM,
+                 encoder_plm_probability: float = MBART_ENCODER_PLM_PROBABILITY,
+                 encoder_plm_max_length: int = MBART_ENCODER_PLM_MAX_LENGTH,
+                 encoder_plm_min_window_length: int = MBART_ENCODER_PLM_MIN_WINDOW_LENGTH,
+                 encoder_style_switch_probability: float = MBART_ENCODER_STYLE_SWITCH_PROBABILITY,
                  bert_lang: str = "en",
                  inference: bool = False
                  ) -> None:
@@ -83,13 +93,25 @@ class CodeMixedModelHGTrainer:
                 - do_predict: bool, whether to predict the model or not
                 - evaluation_strategy: str, the evaluation strategy to be used
                 - log_path: str, the path to save the logs
-                - generate_config: dict, the config for the generation of the model
+                - max_length: int, the maximum length of the generated sequence
+                - early_stopping: bool, whether to use early stopping or not
+                - num_beams: int, the number of beams to be used for generation
+                - denoising_stage: bool, whether to use denoising stage or not
                 - encoder_tokenizer: CustomBartTokenizer, the tokenizer for the encoder
                 - decoder_tokenizer: CustomBartTokenizer, the tokenizer for the decoder
                 - encoder_add_special_tokens: bool, whether to add special tokens to the encoder or not
                 - encoder_max_length: int, the maximum length of the encoder sequence
                 - encoder_return_tensors: str, the return tensors for the encoder
                 - encoder_padding: Union[bool, str], the padding for the encoder
+                - encoder_mlm: bool, whether to use MLM for the encoder or not
+                - encoder_mlm_probability: float, the probability for the MLM
+                - encoder_enable_group_mask: bool, whether to enable group mask for the encoder or not
+                - encoder_mask_max_length: int, the maximum length for the mask
+                - encoder_plm: bool, whether to use PLM for the encoder or not
+                - encoder_plm_probability: float, the probability for the PLM
+                - encoder_plm_max_length: int, the maximum length for the PLM
+                - encoder_plm_min_window_length: int, the minimum window length for the PLM
+                - encoder_style_switch_probability: float, the probability for the style switch
                 - bert_lang: str, the language for the bert model
                 - inference: bool, inference mode or not
         '''
@@ -121,12 +143,22 @@ class CodeMixedModelHGTrainer:
         self.max_length = max_length
         self.early_stopping = early_stopping
         self.num_beams = num_beams
+        self.denoising_stage = denoising_stage
         self.encoder_tokenizer = encoder_tokenizer
         self.decoder_tokenizer = decoder_tokenizer
         self.encoder_add_special_tokens = encoder_add_special_tokens
         self.encoder_max_length = encoder_max_length
         self.encoder_return_tensors = encoder_return_tensors
         self.encoder_padding = encoder_padding
+        self.encoder_mlm = encoder_mlm
+        self.encoder_mlm_probability = encoder_mlm_probability
+        self.encoder_enable_group_mask = encoder_enable_group_mask
+        self.encoder_mask_max_length = encoder_mask_max_length
+        self.encoder_plm = encoder_plm
+        self.encoder_plm_probability = encoder_plm_probability
+        self.encoder_plm_max_length = encoder_plm_max_length
+        self.encoder_plm_min_window_length = encoder_plm_min_window_length
+        self.encoder_style_switch_probability = encoder_style_switch_probability
         self.bert_lang = bert_lang
         self.inference = inference
         self.sacrebleu_score_metric = load_metric("sacrebleu")
@@ -173,15 +205,21 @@ class CodeMixedModelHGTrainer:
         '''
         if self.verbose:
             print("\nConfiguring collator...")
-        self.mlm_data_collator = DataCollatorForLanguageMasking(
-            tokenizer=self.encoder_tokenizer)
-        self.plm_data_collator = DataCollatorForLanguagePermutation(
-            tokenizer=self.encoder_tokenizer)
-        self.data_collator = DataCollatorWithPadding(
+        self.data_collator = DataCollator(
             tokenizer=self.encoder_tokenizer,
+            denoising_stage=self.denoising_stage,
+            mlm=self.encoder_mlm,
+            plm=self.encoder_plm,
             padding=self.encoder_padding,
-            max_length=self.encoder_max_length,
-            return_tensors=self.encoder_return_tensors
+            enable_group_mask=self.encoder_enable_group_mask,
+            mask_max_length=self.encoder_mask_max_length,
+            permute_mask_length=self.encoder_plm_max_length,
+            padding_max_length=self.encoder_max_length,
+            return_tensors=self.encoder_return_tensors,
+            mlm_probability=self.encoder_mlm_probability,
+            plm_probability=self.encoder_plm_probability,
+            min_window_length=self.encoder_plm_min_window_length,
+            style_switch_probability=self.encoder_style_switch_probability
         )
 
     def _configure_optimizers(self) -> None:

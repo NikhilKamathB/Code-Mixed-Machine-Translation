@@ -13,6 +13,7 @@ class CodeMixedDataset(Dataset):
 
     '''
         Custom dataset class for Code Mixed data
+        Note: In denoising stage, the source and target languages are same.
     '''
 
     def __init__(self, data: pd.DataFrame,
@@ -38,6 +39,8 @@ class CodeMixedDataset(Dataset):
         self.tgt_lang = tgt_lang
         self.overfit = overfit
         self.overfit_size = overfit_size
+        if self.denoiising_stage:
+            self.tgt_lang = self.src_lang
 
     def __len__(self):
         '''
@@ -63,6 +66,8 @@ class CodeMixedTokenizedDataset(Dataset):
 
     '''
         Custom dataset class for Code Mixed data - tokenized version
+        Note: In denoising stage, the source and target languages/tokenizers/other related attributes are same.
+        The decoder gets overwritten by the encoder.
     '''
 
     def __init__(self, data: pd.DataFrame,
@@ -134,6 +139,13 @@ class CodeMixedTokenizedDataset(Dataset):
         self.overfit_size = overfit_size
         if self.denoising_stage:
             self.tgt_lang = self.src_lang
+            self.decoder_tokenizer = self.encoder_tokenizer
+            self.decoder_add_special_tokens = self.encoder_add_special_tokens
+            self.decoder_max_length = self.encoder_max_length
+            self.decoder_return_tensors = self.encoder_return_tensors
+            self.decoder_padding = self.encoder_padding
+            self.decoder_truncation = self.encoder_truncation
+            self.decoder_verbose = self.encoder_verbose
 
     def __len__(self):
         '''
@@ -194,6 +206,8 @@ class CodeMixedDataLoader(DataLoader):
 
     '''
         Custom dataloader class for Code Mixed data
+        Note: In denoising stage, the source and target languages/tokenizers/other related attributes are same.
+        The decoder gets overwritten by the encoder.
     '''
 
     def __init__(self,
@@ -275,7 +289,6 @@ class CodeMixedDataLoader(DataLoader):
         assert tgt_lang in PROCESSED_COLUMN_NAMES, "Target language not found in column names."
         assert encoder_tokenizer is not None, "Encoder tokenizer cannot be None."
         assert decoder_tokenizer is not None, "Decoder tokenizer cannot be None."
-        assert encoder_tokenizer == decoder_tokenizer if denoising_stage else encoder_tokenizer != decoder_tokenizer, "Encoder and decoder tokenizers must be same for denoising stage and different for translation stage."
         self.train_df = train_df
         self.validation_df = validation_df
         self.test_df = test_df
@@ -308,6 +321,13 @@ class CodeMixedDataLoader(DataLoader):
         self.num_workers = os.cpu_count() // 2 if num_workers is None else num_workers
         if self.denoising_stage:
             self.tgt_lang = self.src_lang
+            self.decoder_tokenizer = self.encoder_tokenizer
+            self.decoder_add_special_tokens = self.encoder_add_special_tokens
+            self.decoder_max_length = self.encoder_max_length
+            self.decoder_return_tensors = self.encoder_return_tensors
+            self.decoder_padding = self.encoder_padding
+            self.decoder_truncation = self.encoder_truncation
+            self.decoder_verbose = self.encoder_verbose
             self.mlm_data_collator = DataCollatorForLanguageMasking(
                 tokenizer=self.encoder_tokenizer)
             self.plm_data_collator = DataCollatorForLanguagePermutation(
@@ -427,7 +447,8 @@ class CodeMixedDataLoader(DataLoader):
         batch_tgt_attention_mask = batch["tgt_attention_mask"]
         if self.denoising_stage and "denoising_src_tokenized" in batch.keys():
             batch_denoising_src_tokenized = batch["denoising_src_tokenized"]
-            batch_denoising_labels = batch["denoising_labels"]
+            batch_denoising_labels = batch["denoising_tgt_tokenized"]
+            batch_denoising_mask_labels = batch["denoising_mask_tgt_tokenized"]
             batch_denoising_mask = batch["denoising_mask"]
         print("Batch source language shape: ", batch_src_tokenized.shape)
         print("Batch source language: ", batch_src)
@@ -447,6 +468,7 @@ class CodeMixedDataLoader(DataLoader):
             print("Batch denoising source decoded: ",
                   batch_denoising_src_decoded)
             print("Batch denoising labels: ", batch_denoising_labels)
+            print("Batch denoising mask labels: ", batch_denoising_mask_labels)
             print("Batch denoising mask: ", batch_denoising_mask)
         print("Validating train laoder...")
         for batch in tqdm(train_data_loader):

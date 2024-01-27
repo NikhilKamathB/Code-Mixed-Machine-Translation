@@ -33,7 +33,8 @@ sys.path.append("..")
 import torch
 import random
 import pandas as pd
-from typing import Tuple
+from typing import Tuple, Union
+from transformers import BartTokenizer
 
 # Import custom modules
 from src.data import *
@@ -42,8 +43,7 @@ from src.data.utils import get_dataset
 from src.data.preprocess import clean_text
 from src.data.tokenizer import CustomBartTokenizer
 from src.machine_translation.translate import translate
-from src.machine_translation.net import CodeMixedModel, CodeMixedModelHGTrainer
-from src.machine_translation.models.bart_conditional import BartForConditionalGeneration
+from src.machine_translation.net import CodeMixedModelHGTrainer
 from src.machine_translation.utils import get_tokenized_dataset_models, get_data_loader_models, calculate_sacrebleu_score, calculate_chrf_score, calculate_bert_score, calculate_tokens
 
 
@@ -79,3 +79,62 @@ def load_tokenizers(train_df: pd.DataFrame) -> Tuple[CustomBartTokenizer, Custom
         tokenizer_bart_from_pretrained_path=MBART_TOKENIZER_BPE_BINDING_BART_TOKENIZER_DECODER_FROM_PRETRAINED
     )
     return (hi_en_bart_tokenizer, en_bart_tokenizer)
+
+# Build or load datasets
+def load_datasets(
+        train_df: pd.DataFrame, 
+        validation_df: pd.DataFrame, 
+        test_df: pd.DataFrame, 
+        encoder_tokenizer: Union[CustomBartTokenizer, BartTokenizer],
+        decoder_tokenizer: Union[CustomBartTokenizer, BartTokenizer],
+        denoising_stage: bool = False, 
+        mode: str = "hi_en__en") -> Tuple[torch.utils.data.Dataset, torch.utils.data.Dataset, torch.utils.data.Dataset]:
+    """
+        Build or load the datasets
+        Input: 
+            train_df - training dataframe
+            validation_df - validation dataframe
+            test_df - test dataframe
+            encoder_tokenizer - tokenizer for the encoder
+            decoder_tokenizer - tokenizer for the decoder
+            denoising_stage - whether to use denoising stage or not
+            mode - translation mode
+        Output: Tuple of train, validation, and test datasets
+    """
+    dataset = get_tokenized_dataset_models(
+        train_df=train_df,
+        validation_df=validation_df,
+        test_df=test_df,
+        encoder_tokenizer=encoder_tokenizer,
+        decoder_tokenizer=decoder_tokenizer,
+        denoising_stage=denoising_stage
+    )
+    return dataset[mode].values()
+
+# Build or load model
+def load_model(
+        train_dataset: torch.utils.data.Dataset, 
+        validation_dataset: torch.utils.data.Dataset, 
+        test_dataset: torch.utils.data.Dataset,
+        encoder_tokenizer: Union[CustomBartTokenizer, BartTokenizer], 
+        decoder_tokenizer: Union[CustomBartTokenizer, BartTokenizer],
+        denoising_stage: bool = False) -> CodeMixedModelHGTrainer:
+    """
+        Build or load the model
+        Input: 
+            train_dataset - training dataset
+            validation_dataset - validation dataset
+            test_dataset - test dataset
+            encoder_tokenizer - tokenizer for the encoder
+            decoder_tokenizer - tokenizer for the decoder
+            denoising_stage - whether to use denoising stage or not
+        Output: An instance of CodeMixedModelHGTrainer
+    """
+    return CodeMixedModelHGTrainer(
+        train_dataset=train_dataset,
+        validation_dataset=validation_dataset,
+        test_dataset=test_dataset,
+        encoder_tokenizer=encoder_tokenizer,
+        decoder_tokenizer=decoder_tokenizer,
+        denoising_stage=denoising_stage
+    )

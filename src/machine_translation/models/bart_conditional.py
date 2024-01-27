@@ -1,5 +1,4 @@
 import torch
-from transformers import BartConfig
 from transformers import BartForConditionalGeneration as BartModelGen
 from src.machine_translation import *
 
@@ -20,11 +19,7 @@ class BartForConditionalGeneration:
         if pretrained:
             self.model = BartModelGen.from_pretrained(pretrained_path)
         else:
-            self.model = BartModelGen(
-                BartConfig(
-                    vocab_size=MBART_MODEL_CONDITIONAL_GENERATION_VOCAB
-                )
-            )
+            self.model = BartModelGen()
         if device is None:
             if torch.cuda.is_available():
                 self.device = "cuda"
@@ -34,11 +29,11 @@ class BartForConditionalGeneration:
                 self.device = "cpu"
         else:
             self.device = device
-        self.config()
         self.model.to(self.device)
 
-    def config(self) -> None:
+    def configure(self, embedding_size: int = MBART_MODEL_CONDITIONAL_GENERATION_VOCAB) -> None:
         '''
             Configures the model.
         '''
-        self.model.config.vocab_size = MBART_MODEL_CONDITIONAL_GENERATION_VOCAB
+        self.model.config.vocab_size = embedding_size
+        self.model.resize_token_embeddings(embedding_size)

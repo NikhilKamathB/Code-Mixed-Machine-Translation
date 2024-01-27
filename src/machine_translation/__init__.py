@@ -23,7 +23,6 @@ MBART_ENCODER_PLM_MAX_LENGTH = __config__["mbart_code_mixed"]["dataloader"]["enc
 MBART_ENCODER_PLM_MIN_WINDOW_LENGTH = __config__[
     "mbart_code_mixed"]["dataloader"]["encoder"]["plm_min_window_length"]
 MBART_ENCODER_STYLE_SWITCH_PROBABILITY = __config__["mbart_code_mixed"]["dataloader"]["encoder"]["style_switch_probability"]
-
 MBART_ENCODER_VERBOSE = __config__["mbart_code_mixed"]["dataloader"]["encoder"]["verbose"]
 MBART_DECODER_ADD_SPECIAL_TOKENS = __config__["mbart_code_mixed"]["dataloader"]["decoder"]["add_special_tokens"]
 MBART_DECODER_MAX_LENGTH = __config__["mbart_code_mixed"]["dataloader"]["decoder"]["max_length"]
@@ -45,7 +44,7 @@ MBART_MODEL_CONDITIONAL_GENERATION_SAVE_PATH = __config__["mbart_code_mixed"]["m
 MBART_MODEL_CONDITIONAL_GENERATION_LOG_PATH = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["log_path"]
 MBART_MODEL_CONDITIONAL_GENERATION_LOAD_PATH = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["load_path"]
 MBART_MODEL_CONDITIONAL_GENERATION_FROM_PRETRAINED = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["from_pretrained"]
-MBART_MODEL_CONDITIONAL_GENERATION_VOCAB = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["vocab_size"]
+MBART_MODEL_CONDITIONAL_GENERATION_VOCAB = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["vocab_size"] # 50265 + 1 for the <mask> token
 MBART_MODEL_CONDITIONAL_GENERATION_VERBOSE = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["verbose"]
 MBART_MODEL_CONDITIONAL_GENERATION_VERBOSE_STEP = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["verbose_step"]
 MBART_MODEL_CONDITIONAL_GENERATION_FREEZE_MODEL = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["freeze_model"]

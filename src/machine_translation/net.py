@@ -11,8 +11,8 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 from datasets import load_metric
 from torch.utils.data import Dataset, DataLoader
+from transformers import GenerationConfig, TrainingArguments, Trainer
 from transformers.optimization import AdamW, get_linear_schedule_with_warmup
-from transformers import GenerationConfig, DataCollatorWithPadding, TrainingArguments, Trainer
 from src.data import *
 from src.machine_translation import *
 from src.data.tokenizer import CustomBartTokenizer
@@ -180,10 +180,12 @@ class CodeMixedModelHGTrainer:
         if self.verbose:
             print("Getting the model...")
         if model_name == MBART_MODEL_CONDITIONAL_GENERATION_TYPE:
-            return BartForConditionalGeneration(
+            model_obj = BartForConditionalGeneration(
                 pretrained=pretrained,
                 pretrained_path=pretrained_path
-            ).model
+            )
+            model_obj.configure(embedding_size=len(self.encoder_tokenizer))
+            return model_obj.model
         else:
             raise NotImplementedError(f"Model {model_name} not implemented")
 
@@ -307,7 +309,8 @@ class CodeMixedModelHGTrainer:
             num_train_epochs=self.epochs,
             logging_dir=self.log_path,
             eval_steps=100,
-            logging_steps=100
+            logging_steps=100,
+            save_steps=100
         )
         args.set_dataloader(train_batch_size=self.train_batch_size,
                             eval_batch_size=self.validation_batch_size)
@@ -334,6 +337,8 @@ class CodeMixedModelHGTrainer:
         '''
             This function configures the model
         '''
+        if self.denoising_stage:
+            self.decoder_tokenizer = self.encoder_tokenizer
         self.model = self._get_model()
         if self.freeze:
             self._freeze_weights()
@@ -601,6 +606,7 @@ class CodeMixedModelHGTrainer:
             return res
 
 
+# [Obsolete]
 class CodeMixedModel:
 
     '''

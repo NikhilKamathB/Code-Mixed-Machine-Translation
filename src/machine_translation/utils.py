@@ -216,7 +216,7 @@ def get_data_loader_models(
 
 def upload_blob(bucket_name: str, source_file_name: str, destination_blob_name: str) -> bool:
     """
-        Uploads a file to the bucket.
+        Uploads a blob to the bucket.
         Input parameters:
             - bucket_name: A string containing the name of the bucket.
             - source_file_name: A string containing the name of the file to be uploaded.
@@ -224,7 +224,7 @@ def upload_blob(bucket_name: str, source_file_name: str, destination_blob_name: 
         Returns: A boolean value indicating whether the file was successfully uploaded.
     """
     try:
-        storage_client = storage.Client()
+        storage_client = storage.Client(project=os.getenv("GOOGLE_PROJECT_ID", None))
         bucket = storage_client.bucket(bucket_name)
         blob = bucket.blob(destination_blob_name)
         blob.upload_from_filename(source_file_name)

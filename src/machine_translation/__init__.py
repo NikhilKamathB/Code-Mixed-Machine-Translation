@@ -39,9 +39,15 @@ MBART_MODEL_CONDITIONAL_GENERATION_TYPE = __config__["mbart_code_mixed"]["model"
 MBART_MODEL_CONDITIONAL_GENERATION_USE_PRETRAINED = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["use_pretrained"]
 MBART_MODEL_CONDITIONAL_GENERATION_DEVICE = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["device"]
 MBART_MODEL_CONDITIONAL_GENERATION_EPOCHS = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["epochs"]
+MBART_MODEL_CONDITIONAL_GENERATION_EVAL_STEPS = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["eval_steps"]
 MBART_MODEL_CONDITIONAL_GENERATION_SAVE_MODEL = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["save_model"]
 MBART_MODEL_CONDITIONAL_GENERATION_SAVE_PATH = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["save_path"]
+MBART_MODEL_CONDITIONAL_GENERATION_GCP_SAVE_PATH = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["gcp_save_path"]
+MBART_MODEL_CONDITIONAL_GENERATION_SAVE_STEPS = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["save_steps"]
+MBART_MODEL_CONDITIONAL_GENERATION_CLEAR_LOCAL_STORAGE_ON_CLOUD_SAVE = __config__[
+    "mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["clear_local_files_on_cloud_save"]
 MBART_MODEL_CONDITIONAL_GENERATION_LOG_PATH = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["log_path"]
+MBART_MODEL_CONDITIONAL_GENERATION_LOG_STEPS = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["log_steps"]
 MBART_MODEL_CONDITIONAL_GENERATION_LOAD_PATH = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["load_path"]
 MBART_MODEL_CONDITIONAL_GENERATION_FROM_PRETRAINED = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["from_pretrained"]
 MBART_MODEL_CONDITIONAL_GENERATION_VOCAB = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["vocab_size"] # 50265 + 1 for the <mask> token

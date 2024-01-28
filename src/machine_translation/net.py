@@ -17,6 +17,7 @@ from src.data import *
 from src.machine_translation import *
 from src.data.tokenizer import CustomBartTokenizer
 from src.machine_translation.models.bart_conditional import BartForConditionalGeneration
+from src.machine_translation.callback import GCPCallback
 from src.machine_translation.collator import DataCollator
 
 
@@ -33,7 +34,10 @@ class CodeMixedModelHGTrainer:
                  use_pretrained: bool = MBART_MODEL_CONDITIONAL_GENERATION_USE_PRETRAINED,
                  from_pretrained: str = MBART_MODEL_CONDITIONAL_GENERATION_FROM_PRETRAINED,
                  save_path_dir: str = MBART_MODEL_CONDITIONAL_GENERATION_SAVE_PATH,
+                 cloud_save_path: str = MBART_MODEL_CONDITIONAL_GENERATION_GCP_SAVE_PATH,
+                 save_steps: int = MBART_MODEL_CONDITIONAL_GENERATION_SAVE_STEPS,
                  epochs: int = MBART_MODEL_CONDITIONAL_GENERATION_EPOCHS,
+                 eval_steps: int = MBART_MODEL_CONDITIONAL_GENERATION_EVAL_STEPS,
                  device: str = MBART_MODEL_CONDITIONAL_GENERATION_DEVICE,
                  verbose: bool = MBART_MODEL_CONDITIONAL_GENERATION_VERBOSE,
                  verbose_step: int = MBART_MODEL_CONDITIONAL_GENERATION_VERBOSE_STEP,
@@ -48,6 +52,7 @@ class CodeMixedModelHGTrainer:
                  do_predict: bool = MBART_MODEL_CONDITIONAL_GENERATION_DO_PREDICT,
                  evaluation_strategy: str = MBART_MODEL_CONDITIONAL_GENERATION_EVALUALTION_STRATEGY,
                  log_path: str = MBART_MODEL_CONDITIONAL_GENERATION_LOG_PATH,
+                 log_steps: int = MBART_MODEL_CONDITIONAL_GENERATION_LOG_STEPS,
                  max_length: int = MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_MAX_LENGTH,
                  early_stopping: bool = MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_EARLY_STOPPING,
                  num_beams: int = MBART_MODEL_CONDITIONAL_GENERATION_GENERATE_NUM_BEAMS,
@@ -68,7 +73,8 @@ class CodeMixedModelHGTrainer:
                  encoder_plm_min_window_length: int = MBART_ENCODER_PLM_MIN_WINDOW_LENGTH,
                  encoder_style_switch_probability: float = MBART_ENCODER_STYLE_SWITCH_PROBABILITY,
                  bert_lang: str = "en",
-                 inference: bool = False
+                 inference: bool = False,
+                 clear_local_storage_on_cloud_save: bool = MBART_MODEL_CONDITIONAL_GENERATION_CLEAR_LOCAL_STORAGE_ON_CLOUD_SAVE
                  ) -> None:
         '''
             Initial definition of the Code Mixed Model using HuggingFace trainer.
@@ -79,7 +85,10 @@ class CodeMixedModelHGTrainer:
                 - use_pretrained: bool, whether to use a pretrained model or not
                 - from_pretrained: str, the path to the pretrained model
                 - save_path_dir: str, the path to save the model
+                - cloud_save_path: str, the path to save the model on cloud
+                - save_steps: int, the steps after which the model will be saved
                 - epochs: int, the number of epochs to train the model
+                - eval_steps: int, the steps after which the model will be evaluated
                 - verbose: bool, whether to print the logs or not
                 - verbose_step: int, the step after which the logs will be printed
                 - freeze: bool, whether to freeze the model or not
@@ -93,6 +102,7 @@ class CodeMixedModelHGTrainer:
                 - do_predict: bool, whether to predict the model or not
                 - evaluation_strategy: str, the evaluation strategy to be used
                 - log_path: str, the path to save the logs
+                - log_steps: int, the steps after which the logs will be saved
                 - max_length: int, the maximum length of the generated sequence
                 - early_stopping: bool, whether to use early stopping or not
                 - num_beams: int, the number of beams to be used for generation
@@ -114,6 +124,7 @@ class CodeMixedModelHGTrainer:
                 - encoder_style_switch_probability: float, the probability for the style switch
                 - bert_lang: str, the language for the bert model
                 - inference: bool, inference mode or not
+                - clear_local_storage_on_cloud_save: bool, whether to clear the local storage on cloud save or not
         '''
         super().__init__()
         self.train_dataset = train_dataset
@@ -123,7 +134,10 @@ class CodeMixedModelHGTrainer:
         self.from_pretrained = from_pretrained
         dt_now = datetime.now().strftime("%Y%m%d-%H%M%S")
         self.save_path_dir = save_path_dir + "_" + dt_now
+        self.cloud_save_path = cloud_save_path
+        self.eval_steps = eval_steps
         self.epochs = epochs
+        self.save_steps = save_steps
         self.device = device
         self.verbose = verbose
         self.verbose_step = verbose_step
@@ -140,6 +154,7 @@ class CodeMixedModelHGTrainer:
         self.do_predict = do_predict
         self.evalualtion_strategy = evaluation_strategy
         self.log_path = log_path + "_" + dt_now if log_path is not None else None
+        self.log_steps = log_steps
         self.max_length = max_length
         self.early_stopping = early_stopping
         self.num_beams = num_beams
@@ -161,6 +176,7 @@ class CodeMixedModelHGTrainer:
         self.encoder_style_switch_probability = encoder_style_switch_probability
         self.bert_lang = bert_lang
         self.inference = inference
+        self.clear_local_storage_on_cloud_save = clear_local_storage_on_cloud_save
         self.sacrebleu_score_metric = load_metric("sacrebleu")
         self.chrf_score_metric = load_metric("chrf")
         self.bertscore_metric = load_metric("bertscore")
@@ -308,9 +324,9 @@ class CodeMixedModelHGTrainer:
             evaluation_strategy=self.evalualtion_strategy,
             num_train_epochs=self.epochs,
             logging_dir=self.log_path,
-            eval_steps=100,
-            logging_steps=100,
-            save_steps=100
+            eval_steps=self.eval_steps,
+            logging_steps=self.log_steps,
+            save_steps=self.save_steps
         )
         args.set_dataloader(train_batch_size=self.train_batch_size,
                             eval_batch_size=self.validation_batch_size)
@@ -330,7 +346,12 @@ class CodeMixedModelHGTrainer:
             train_dataset=self.train_dataset,
             eval_dataset=self.validation_dataset,
             optimizers=(self.optimizer, self.scheduler),
-            data_collator=self.data_collator
+            data_collator=self.data_collator,
+            callbacks=[GCPCallback(
+                clear_local_storage=self.clear_local_storage_on_cloud_save,
+                destination_path=self.cloud_save_path,
+                verbose=self.verbose
+            )]
         )
 
     def _configure(self) -> None:

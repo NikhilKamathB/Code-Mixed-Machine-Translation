@@ -41,6 +41,7 @@ MBART_MODEL_CONDITIONAL_GENERATION_DEVICE = __config__["mbart_code_mixed"]["mode
 MBART_MODEL_CONDITIONAL_GENERATION_EPOCHS = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["epochs"]
 MBART_MODEL_CONDITIONAL_GENERATION_EVAL_STEPS = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["eval_steps"]
 MBART_MODEL_CONDITIONAL_GENERATION_SAVE_MODEL = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["save_model"]
+MBART_MODEL_CONDITIONAL_GENERATION_SAVE_TO_GCP = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["save_to_gcp"]
 MBART_MODEL_CONDITIONAL_GENERATION_SAVE_PATH = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["save_path"]
 MBART_MODEL_CONDITIONAL_GENERATION_GCP_SAVE_PATH = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["gcp_save_path"]
 MBART_MODEL_CONDITIONAL_GENERATION_SAVE_STEPS = __config__["mbart_code_mixed"]["model"]["bart_for_conditional_generation"]["save_steps"]

@@ -33,6 +33,7 @@ class CodeMixedModelHGTrainer:
                  test_dataset: Dataset = None,
                  use_pretrained: bool = MBART_MODEL_CONDITIONAL_GENERATION_USE_PRETRAINED,
                  from_pretrained: str = MBART_MODEL_CONDITIONAL_GENERATION_FROM_PRETRAINED,
+                 save_to_gcp: bool = MBART_MODEL_CONDITIONAL_GENERATION_SAVE_TO_GCP,
                  save_path_dir: str = MBART_MODEL_CONDITIONAL_GENERATION_SAVE_PATH,
                  cloud_save_path: str = MBART_MODEL_CONDITIONAL_GENERATION_GCP_SAVE_PATH,
                  save_steps: int = MBART_MODEL_CONDITIONAL_GENERATION_SAVE_STEPS,
@@ -84,6 +85,7 @@ class CodeMixedModelHGTrainer:
                 - test_dataset: Dataset, the test dataset
                 - use_pretrained: bool, whether to use a pretrained model or not
                 - from_pretrained: str, the path to the pretrained model
+                - save_to_gcp: bool, whether to save the model to GCP or not
                 - save_path_dir: str, the path to save the model
                 - cloud_save_path: str, the path to save the model on cloud
                 - save_steps: int, the steps after which the model will be saved
@@ -132,6 +134,7 @@ class CodeMixedModelHGTrainer:
         self.test_dataset = test_dataset
         self.use_pretrained = use_pretrained
         self.from_pretrained = from_pretrained
+        self.save_to_gcp = save_to_gcp
         dt_now = datetime.now().strftime("%Y%m%d-%H%M%S")
         self.save_path_dir = save_path_dir + "_" + dt_now
         self.cloud_save_path = cloud_save_path
@@ -348,6 +351,7 @@ class CodeMixedModelHGTrainer:
             optimizers=(self.optimizer, self.scheduler),
             data_collator=self.data_collator,
             callbacks=[GCPCallback(
+                save_to_gcp=self.save_to_gcp,
                 clear_local_storage=self.clear_local_storage_on_cloud_save,
                 destination_path=self.cloud_save_path,
                 verbose=self.verbose
@@ -643,6 +647,7 @@ class CodeMixedModel:
                  epochs: int = MBART_MODEL_CONDITIONAL_GENERATION_EPOCHS,
                  device: str = MBART_MODEL_CONDITIONAL_GENERATION_DEVICE,
                  save_model: bool = MBART_MODEL_CONDITIONAL_GENERATION_SAVE_MODEL,
+                 save_to_gcp: bool = MBART_MODEL_CONDITIONAL_GENERATION_SAVE_TO_GCP,
                  save_path_dir: str = MBART_MODEL_CONDITIONAL_GENERATION_SAVE_PATH,
                  saved_model_path: str = MBART_MODEL_CONDITIONAL_GENERATION_LOAD_PATH,
                  model_name: str = MBART_MODEL_CONDITIONAL_GENERATION_TYPE,
@@ -710,6 +715,7 @@ class CodeMixedModel:
         self.epochs = epochs
         self.device = device
         self.save_model = save_model
+        self.save_to_gcp = save_to_gcp
         self.save_path_dir = save_path_dir
         self.saved_model_path = saved_model_path
         self.model_name = model_name

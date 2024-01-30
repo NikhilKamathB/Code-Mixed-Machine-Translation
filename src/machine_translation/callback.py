@@ -21,14 +21,16 @@ class GCPCallback(TrainerCallback):
         '''
         shutil.rmtree(directory)
 
-    def __init__(self, clear_local_storage: bool = True, destination_path: str = None, verbose: bool = True) -> None:
+    def __init__(self, save_to_gcp: bool = True, clear_local_storage: bool = True, destination_path: str = None, verbose: bool = True) -> None:
         '''
             Initializes the callback.
             Input params:
+                save_to_gcp: bool -> Whether to save to GCP or not.
                 clear_local_storage: bool -> Whether to clear local storage or not.
                 destination_path: str -> The destination path to store the checkpoints.
                 verbose: bool -> Whether to print the logs or not.
         '''
+        self.save_to_gcp = save_to_gcp
         self.bucket_name = None
         self.parent_root = None
         self.clear_local_storage = clear_local_storage
@@ -56,12 +58,13 @@ class GCPCallback(TrainerCallback):
                 state: TrainerState -> The trainer state.
                 control: TrainerControl -> The trainer control.
         '''
-        checkpoint = os.listdir(args.output_dir)[-1] # Get the latest checkpoint
-        local_dir = os.path.join(args.output_dir, checkpoint)
-        for local_file in os.listdir(local_dir):
-            local_file_path = os.path.join(local_dir, local_file)
-            remote_path = os.path.join(self.destination_path, self.parent_root, checkpoint, local_file)
-            if self.verbose:
-                print(f"Step - {state.global_step}: Uploading {local_file_path} to {remote_path}...")
-            _ = upload_blob(self.bucket_name, local_file_path, remote_path)
-        if self.clear_local_storage: self._clear_directory(local_dir)
+        if self.save_to_gcp:
+            checkpoint = os.listdir(args.output_dir)[-1] # Get the latest checkpoint
+            local_dir = os.path.join(args.output_dir, checkpoint)
+            for local_file in os.listdir(local_dir):
+                local_file_path = os.path.join(local_dir, local_file)
+                remote_path = os.path.join(self.destination_path, self.parent_root, checkpoint, local_file)
+                if self.verbose:
+                    print(f"Step - {state.global_step}: Uploading {local_file_path} to {remote_path}...")
+                _ = upload_blob(self.bucket_name, local_file_path, remote_path)
+            if self.clear_local_storage: self._clear_directory(local_dir)

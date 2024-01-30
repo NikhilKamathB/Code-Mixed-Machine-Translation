@@ -224,13 +224,30 @@ def upload_blob(bucket_name: str, source_file_name: str, destination_blob_name: 
         Returns: A boolean value indicating whether the file was successfully uploaded.
     """
     try:
-        storage_client = storage.Client(project=os.getenv("GOOGLE_PROJECT_ID", None))
-        bucket = storage_client.bucket(bucket_name)
+        bucket = storage.Client(project=os.getenv("GOOGLE_PROJECT_ID", None)).bucket(bucket_name)
         blob = bucket.blob(destination_blob_name)
         blob.upload_from_filename(source_file_name)
         return True
     except Exception as e:
         print(f"An Error occured while uploading file {source_file_name} to {destination_blob_name} with `e` as: {e}.")
+        return False
+
+def download_blob(bucket_name: str, source_blob_name: str, destination_file_name: str) -> bool:
+    """
+        Downloads a blob from the bucket.
+        Input parameters:
+            - bucket_name: A string containing the name of the bucket.
+            - source_blob_name: A string containing the name of the source blob.
+            - destination_file_name: A string containing the name of the destination file.
+        Returns: A boolean value indicating whether the file was successfully downloaded.
+    """
+    try:
+        bucket = storage.Client(project=os.getenv("GOOGLE_PROJECT_ID", None)).bucket(bucket_name)
+        blob = bucket.blob(source_blob_name)
+        blob.download_to_filename(destination_file_name)
+        return True
+    except Exception as e:
+        print(f"An Error occured while downloading file {source_blob_name} to {destination_file_name} with `e` as: {e}.")
         return False
     
 def calculate_sacrebleu_score(group: pd.DataFrame, src_tgt_lang: list = PROCESSED_COLUMN_NAMES) -> float:

@@ -5,7 +5,7 @@
 # Set the environment
 import os
 import sys
-__GIT_REPO__ = os.getenv("__git_repo_name", "Code-Mixed-Machine-Translation")
+__GIT_REPO__ = os.getenv("REPO_NAME", "Code-Mixed-Machine-Translation")
 try:
     # Setup colab environment
     # Mount the drive

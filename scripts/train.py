@@ -45,14 +45,15 @@ from src.machine_translation.utils import get_tokenized_dataset_models
 
 
 # Load and process data
-def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def load_data(retrieve: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
         Load the dataset and clean the text
-        Input: None
+        Input:
+            retrieve - whether to retrieve the dataset or not
         Output: Tuple of train, validation, and test dataframes
     """
     # Get the dataset
-    train_df, validation_df, test_df = get_dataset()
+    train_df, validation_df, test_df = get_dataset(retrieve=retrieve)
     # Clean the text
     train_df = train_df.applymap(clean_text)
     validation_df = validation_df.applymap(clean_text)

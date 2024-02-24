@@ -214,7 +214,7 @@ def get_data_loader_models(
         }
     return data_loaders
 
-def upload_blob(bucket_name: str, source_file_name: str, destination_blob_name: str) -> bool:
+def upload_blob(bucket_name: str, source_file_name: str, destination_blob_name: str, timeout: int = 3600) -> bool:
     """
         Uploads a blob to the bucket.
         Input parameters:
@@ -226,7 +226,7 @@ def upload_blob(bucket_name: str, source_file_name: str, destination_blob_name: 
     try:
         bucket = storage.Client(project=os.getenv("GOOGLE_PROJECT_ID", None)).bucket(bucket_name)
         blob = bucket.blob(destination_blob_name)
-        blob.upload_from_filename(source_file_name)
+        blob.upload_from_filename(source_file_name, timeout=timeout)
         return True
     except Exception as e:
         print(f"An Error occured while uploading file {source_file_name} to {destination_blob_name} with `e` as: {e}.")

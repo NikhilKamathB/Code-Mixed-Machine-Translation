@@ -1,11 +1,13 @@
-"""
-    Training script for denoising model
-"""
+############################################################################################################
+# Training script for CMMT model
+############################################################################################################
+
 # Set the environment
 import os
 import sys
-__GIT_REPO__ = "Code-Mixed-Machine-Translation"
+__GIT_REPO__ = os.getenv("__git_repo_name", "Code-Mixed-Machine-Translation")
 try:
+    # Setup colab environment
     # Mount the drive
     from google.colab import drive
     drive.mount('/content/drive')
@@ -13,12 +15,8 @@ try:
     os.chdir(f"{os.environ['WORK_DIR']}/{__GIT_REPO__}",
              f"/content/drive/MyDrive/colab/{__GIT_REPO__}")
     sys.path.append(f"{os.environ['WORK_DIR']}/{__GIT_REPO__}")
-    # Install required packages
-    from scripts.utils import install_package
-    install_package(["accelerate", "datasets", "tokenizers",
-                    "sacrebleu", "bert_score", "evaluate", "transformers==4.36.0"])
 except Exception as e:
-    print("An error occured while mounting the drive: ", e)
+    print("An error occured while mounting the drive: ", e, "Skipping the mounting step.")
 print(f"Current working directory: {os.getcwd()}")
 
 # Suppress warnings
@@ -31,7 +29,7 @@ sys.path.append("..")
 
 # Import libraries
 import torch
-import random
+import argparse
 import pandas as pd
 from typing import Tuple, Union
 from transformers import BartTokenizer
@@ -42,9 +40,8 @@ from src.machine_translation import *
 from src.data.utils import get_dataset
 from src.data.preprocess import clean_text
 from src.data.tokenizer import CustomBartTokenizer
-from src.machine_translation.translate import translate
 from src.machine_translation.net import CodeMixedModelHGTrainer
-from src.machine_translation.utils import get_tokenized_dataset_models, get_data_loader_models, calculate_sacrebleu_score, calculate_chrf_score, calculate_bert_score, calculate_tokens
+from src.machine_translation.utils import get_tokenized_dataset_models
 
 
 # Load and process data
@@ -138,3 +135,31 @@ def load_model(
         decoder_tokenizer=decoder_tokenizer,
         denoising_stage=denoising_stage
     )
+
+# Train the model
+def train(denoising: bool = False) -> None:
+    """
+        Train the model.
+        Input: denoising - whether to use denoising stage or not
+    """
+    # Load and process data
+    train_df, validation_df, test_df = load_data()
+    # Build or load tokenizers
+    hi_en_bart_tokenizer, en_bart_tokenizer = load_tokenizers(train_df)
+    # Build or load datasets
+    train_dataset, validation_dataset, test_dataset = load_datasets(
+        train_df, validation_df, test_df, hi_en_bart_tokenizer, en_bart_tokenizer, denoising)
+    # Build or load model
+    model = load_model(
+        train_dataset, validation_dataset, test_dataset, hi_en_bart_tokenizer, en_bart_tokenizer, denoising)
+    # Train the model
+    model.fit()
+
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="Train the Code-Mixed Machine Translation model.")
+    parser.add_argument("-d", "--denoising", action="store_true", help="Train the model in denoising mode.")
+    args = parser.parse_args()
+
+    train(denoising=args.denoising)

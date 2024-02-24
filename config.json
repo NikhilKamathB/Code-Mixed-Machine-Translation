@@ -132,15 +132,15 @@
         "model": {
             "bart_for_conditional_generation": {
                 "type": "BartForConditionalGeneration",
-                "device": "cpu",
-                "epochs": 0.01,
+                "device": "cuda",
+                "epochs": 25,
                 "eval_steps": 100,
                 "save_model": true,
                 "save_to_gcp": true,
                 "save_path": "../runs/models/denoising/bart_for_conditional_generation",
                 "gcp_save_path": "code-mixed-machine-translation/phase-1-denoising",
                 "clear_local_files_on_cloud_save": true,
-                "save_steps": 10,
+                "save_steps": 500,
                 "log_path": null,
                 "log_steps": 100,
                 "load_path": null,

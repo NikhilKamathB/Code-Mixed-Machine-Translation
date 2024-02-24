@@ -197,7 +197,7 @@ class CodeMixedModelHGTrainer:
                 model_name: str, name of the model to be used | default: MBart | options: MBart
         '''
         if self.verbose:
-            print("Getting the model...")
+            print("\nGetting the model...")
         if model_name == MBART_MODEL_CONDITIONAL_GENERATION_TYPE:
             model_obj = BartForConditionalGeneration(
                 pretrained=pretrained,
@@ -219,6 +219,22 @@ class CodeMixedModelHGTrainer:
                 param.requires_grad = True
             else:
                 param.requires_grad = False
+    
+    def _get_eval_data_loader(self, eval_dataset: Dataset) -> DataLoader:
+        '''
+            This function returns the eval data loader
+            Input params:
+                eval_dataset: Dataset, the eval dataset
+        '''
+        return self.trainer.get_eval_dataloader(eval_dataset=eval_dataset)
+
+    def _get_test_data_loader(self, test_dataset: Dataset) -> DataLoader:
+        '''
+            This function returns the test data loader
+            Input params:
+                test_dataset: Dataset, the test dataset
+        '''
+        return self.trainer.get_test_dataloader(test_dataset=test_dataset)
 
     def _configure_collator(self) -> None:
         '''
@@ -245,10 +261,10 @@ class CodeMixedModelHGTrainer:
 
     def _configure_optimizers(self) -> None:
         '''
-            This function configures the optimizer and scheduler.
+            This function configures the optimizer.
         '''
         if self.verbose:
-            print("\nConfiguring optimizer and scheduler...")
+            print("\nConfiguring optimizer...")
         if MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_TYPE == "AdamW":
             optimizer = AdamW(
                 params=self.model.parameters(),
@@ -262,51 +278,7 @@ class CodeMixedModelHGTrainer:
         else:
             raise NotImplementedError(
                 f"Optimizer {MBART_MODEL_CONDITIONAL_GENERATION_OPTIMIZER_TYPE} not implemented.")
-        if MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_TYPE == "get_linear_schedule_with_warmup":
-            scheduler = get_linear_schedule_with_warmup(
-                optimizer=optimizer,
-                num_warmup_steps=MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_WARMUP_STEPS,
-                num_training_steps=MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_TRAINING_STEPS,
-                last_epoch=MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_LAST_EPOCH
-            )
-        else:
-            raise NotImplementedError(
-                f"Scheduler {MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_TYPE} not implemented.")
         self.optimizer = optimizer
-        self.scheduler = scheduler
-
-    def _get_eval_data_loader(self, eval_dataset: Dataset) -> DataLoader:
-        '''
-            This function returns the eval data loader
-            Input params:
-                eval_dataset: Dataset, the eval dataset
-        '''
-        return self.trainer.get_eval_dataloader(eval_dataset=eval_dataset)
-
-    def _get_test_data_loader(self, test_dataset: Dataset) -> DataLoader:
-        '''
-            This function returns the test data loader
-            Input params:
-                test_dataset: Dataset, the test dataset
-        '''
-        return self.trainer.get_test_dataloader(test_dataset=test_dataset)
-
-    def _generate(self, input_ids: torch.LongTensor, model: BartForConditionalGeneration = None) -> str:
-        '''
-            This function generates the translation.
-            Input params:
-                input_ids: torch.LongTensor, the input ids
-                model: BartForConditionalGeneration, the model to be used for inference
-            Returns: str, the translated sentence
-        '''
-        if model is None:
-            model = self.model
-        return model.generate(
-            input_ids=input_ids,
-            max_length=self.max_length,
-            num_beams=self.num_beams,
-            early_stopping=self.early_stopping
-        )
 
     def _configure_training_arguments(self) -> TrainingArguments:
         '''
@@ -358,6 +330,25 @@ class CodeMixedModelHGTrainer:
             )]
         )
 
+    def _configure_scheduler(self) -> None:
+        '''
+            This function configures the scheduler
+        '''
+        if self.verbose:
+            print("\nConfiguring scheduler...")
+        num_training_steps = len(self.trainer.get_train_dataloader()) * self.training_args.num_train_epochs
+        if MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_TYPE == "get_linear_schedule_with_warmup":
+            scheduler = get_linear_schedule_with_warmup(
+                optimizer=self.optimizer,
+                num_warmup_steps=MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_WARMUP_STEPS,
+                num_training_steps=num_training_steps,
+                last_epoch=MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_LAST_EPOCH
+            )
+        else:
+            raise NotImplementedError(
+                f"Scheduler {MBART_MODEL_CONDITIONAL_GENERATION_SCHEDULER_TYPE} not implemented.")
+        self.scheduler = scheduler
+
     def _configure(self) -> None:
         '''
             This function configures the model
@@ -370,6 +361,24 @@ class CodeMixedModelHGTrainer:
         self._configure_optimizers()
         self._configure_collator()
         self._configure_trainer()
+        self._configure_scheduler()
+
+    def _generate(self, input_ids: torch.LongTensor, model: BartForConditionalGeneration = None) -> str:
+        '''
+            This function generates the translation.
+            Input params:
+                input_ids: torch.LongTensor, the input ids
+                model: BartForConditionalGeneration, the model to be used for inference
+            Returns: str, the translated sentence
+        '''
+        if model is None:
+            model = self.model
+        return model.generate(
+            input_ids=input_ids,
+            max_length=self.max_length,
+            num_beams=self.num_beams,
+            early_stopping=self.early_stopping
+        )
 
     def _compute_metrics(self, logits: torch.LongTensor, generations: torch.LongTensor, labels: torch.LongTensor) -> dict:
         '''
@@ -522,7 +531,7 @@ class CodeMixedModelHGTrainer:
         '''
         if self.training_args.do_train:
             if self.verbose:
-                print("Training the model...")
+                print("\nTraining the model...")
             self._train()
         else:
             print("Skipping training as `do_train` is False...")

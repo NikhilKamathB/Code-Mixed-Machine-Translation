@@ -65,6 +65,6 @@ class GCPCallback(TrainerCallback):
                 local_file_path = os.path.join(local_dir, local_file)
                 remote_path = os.path.join(self.destination_path, self.parent_root, checkpoint, local_file)
                 if self.verbose:
-                    print(f"Step - {state.global_step}: Uploading {local_file_path} to {remote_path}...")
+                    print(f"\nStep - {state.global_step}: Uploading {local_file_path} to {remote_path}...")
                 _ = upload_blob(self.bucket_name, local_file_path, remote_path)
             if self.clear_local_storage: self._clear_directory(local_dir)
